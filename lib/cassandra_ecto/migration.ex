@@ -145,10 +145,17 @@ defmodule Cassandra.Ecto.Migration do
   defp ecto_to_db(:binary),          do: "blob"
   defp ecto_to_db(:string),          do: "text"
   defp ecto_to_db(:map),             do: ecto_to_db({:map, :binary})
-  defp ecto_to_db({:map, {t1, t2}}), do: "map<#{ecto_to_db(t1)},#{ecto_to_db(t2)}>"
+  defp ecto_to_db({:map, {t1, t2}}), do: "map<#{ecto_to_db(t1)}, #{ecto_to_db(t2)}>"
   defp ecto_to_db({:map, t}),        do: ecto_to_db({:map, {:varchar, t}})
   defp ecto_to_db({:array, t}),      do: "list<#{ecto_to_db(t)}>"
   defp ecto_to_db({:set, t}),        do: "set<#{ecto_to_db(t)}>"
+  defp ecto_to_db({:tuple, type}) when is_atom(type), do: ecto_to_db({:tuple, [type]})
+  defp ecto_to_db({:tuple, types}) when is_list(types) do
+    types_defintion = types
+    |> Enum.map_join(", ", &ecto_to_db/1)
+    "tuple<#{types_defintion}>"
+  end
+  defp ecto_to_db({:frozen, type}),  do: "frozen<#{ecto_to_db(type)}>"
   defp ecto_to_db(other),            do: Atom.to_string(other)
 
   defp column_definitions(table, columns), do:

@@ -38,6 +38,11 @@ defmodule Cassandra.Spec.Support.Migrations do
         add :value12, :datetime
         add :value13, :time
         add :value14, {:set, :integer}
+        add :value15, {:map, {:integer, :integer}}
+        add :value16, {:tuple, [:integer, :string, :float]}
+        add :value17, {:tuple, [:integer, :string, {:tuple, [:integer, :integer]}]}
+        add :value18, {:map, {:integer, {:frozen, {:map, {:integer, :integer}}}}}
+        add :value19, {:tuple, :integer}
       end
     end
 
