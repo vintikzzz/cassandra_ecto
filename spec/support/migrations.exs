@@ -1,4 +1,32 @@
-defmodule Cassandra.Spec.Support.Migrations do
+defmodule Cassandra.Ecto.Spec.Support.Migrations do
+  defmodule PostsMigration do
+    use Cassandra.Ecto.Migration
+    def change do
+      create table(:users, primary_key: false) do
+        add :id,        :uuid,   primary_key: true
+        add :name,      :string
+        timestamps null: true
+      end
+
+      create type(:comment) do
+        add :author_id, :uuid
+        add :text,      :text
+        add :posted_at, :date
+      end
+
+      create table(:posts, primary_key: false) do
+        add :id,        :uuid,   primary_key: true
+        add :title,     :string, primary_key: true
+        add :text,      :text
+        add :public,    :boolean
+        add :author_id, :uuid
+        add :tags,      {:set,   :string}
+        add :comments,  {:array, {:frozen, :comment}}
+        add :location,  {:tuple, {:float, :float}}
+        timestamps null: true
+      end
+    end
+  end
   defmodule CreateMigration do
     use Cassandra.Ecto.Migration
 
@@ -39,11 +67,29 @@ defmodule Cassandra.Spec.Support.Migrations do
         add :value13, :time
         add :value14, {:set, :integer}
         add :value15, {:map, {:integer, :integer}}
-        add :value16, {:tuple, [:integer, :string, :float]}
-        add :value17, {:tuple, [:integer, :string, {:tuple, [:integer, :integer]}]}
+        add :value16, {:tuple, {:integer, :string, :float}}
+        add :value17, {:tuple, {:integer, :string, {:tuple, {:integer, :integer}}}}
         add :value18, {:map, {:integer, {:frozen, {:map, {:integer, :integer}}}}}
         add :value19, {:tuple, :integer}
       end
+    end
+
+    def down do
+      drop table(@table)
+    end
+  end
+
+  defmodule CreateCounterMigration do
+    use Cassandra.Ecto.Migration
+
+    @table :create_counter_migration
+
+    def up do
+      create table(@table, primary_key: false) do
+        add :value, :string, primary_key: true
+        add :counter, :counter
+      end
+      execute "UPDATE #{@table} SET counter = counter + 1 WHERE value = 'test'"
     end
 
     def down do

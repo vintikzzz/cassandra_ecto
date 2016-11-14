@@ -1,5 +1,6 @@
 defmodule Cassandra.Ecto.Helper do
   alias Ecto.Migration.{Table, Index}
+  alias Ecto.Query
   def quote_name(name)
   def quote_name(name) when is_atom(name),
     do: quote_name(Atom.to_string(name))
@@ -38,4 +39,30 @@ defmodule Cassandra.Ecto.Helper do
     |> Enum.reject(fn(v)-> v == "" end)
     |> Enum.join(joiner)
   end
+
+  def get_names(%Query{wheres: []}), do: []
+  def get_names(%Query{wheres: wheres} = query) do
+    Enum.map(wheres, fn
+      %{expr: expr} -> get_names(expr)
+    end)
+    |> List.flatten
+    |> Enum.sort(&(elem(&1, 0) > elem(&2, 0)))
+    |> Enum.unzip
+    |> elem(1)
+  end
+  def get_names({fun, _, [{{:., _, [{:&, _, [idx]}, field]}, _, []}, {:^, [], [ix]}]}), do:
+    {ix, field}
+  def get_names({fun, _, [{:^, [], [ix]}, {{:., _, [{:&, _, [idx]}, field]}, _, []}]}), do:
+    {ix, field}
+  def get_names({fun, _, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, [{:^, [], [ix]}]]}), do:
+    {ix, field}
+  def get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, [head | tail]]}), do:
+    [
+      get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, head]}),
+      get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, tail]}),
+    ]
+  def get_names({fun, _, [left, right]}), do: [get_names(left), get_names(right)]
+  def get_names({{:., [], [{:&, [], [ix]}, field]}, [], []}), do:
+    {ix, field}
+  def get_names(_), do: []
 end
