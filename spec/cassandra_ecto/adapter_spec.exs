@@ -74,24 +74,37 @@ defmodule CassandraEctoAdapterSpec do
         end
       end
     end
-    context "with basic actions" do
-      it "inserts, updates and deletes" do
-        post = %Post{title: "insert, update, delete", text: "fetch empty"}
-        meta = post.__meta__
-
-        deleted_meta = put_in meta.state, :deleted
-        assert %Post{} = to_be_deleted = TestRepo.insert!(post)
-        assert %Post{__meta__: ^deleted_meta} = TestRepo.delete!(to_be_deleted)
-
-        loaded_meta = put_in meta.state, :loaded
-        assert %Post{__meta__: ^loaded_meta} = TestRepo.insert!(post)
-
-        post = TestRepo.one(Post)
-        assert post.__meta__.state == :loaded
-        assert post.inserted_at
+    context "when insert/6" do
+      it "inserts record" do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post)
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
+      end
+      it "inserts record with ttl and timestamp", focus: true do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post, ttl: 1000, timestamp: :os.system_time(:micro_seconds))
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
       end
     end
-    pending "when insert/6"
-    pending "when insert/5"
+    context "when update/6" do
+      it "updates record" do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post)
+        post = Ecto.Changeset.change post, text: "updated text"
+        post = TestRepo.update!(post)
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
+      end
+    end
+    context "when delete/4" do
+      it "deletes record" do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post)
+        TestRepo.delete!(post)
+        expect(TestRepo.all(Post) |> Enum.count) |> to(eq 0)
+      end
+    end
   end
 end

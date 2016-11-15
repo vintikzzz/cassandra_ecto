@@ -1,21 +1,10 @@
 defmodule Cassandra.Ecto.Storage do
   alias Cassandra.Ecto.Connection
+  import __MODULE__.CQL, only: [to_cql: 2]
 
   def storage_up(opts) do
     {repo, opts} = start(opts, "Up")
-    replication = opts[:replication] || {"SimpleStrategy",
-      replication_factor: 1
-    }
-    {repl_class, repl_opts} = replication
-    durable_writes = opts[:durable_writes] || true
-    cql = """
-          CREATE KEYSPACE #{opts[:keyspace]}
-          WITH REPLICATION = {
-            'class' : '#{repl_class}',
-            'replication_factor' : #{repl_opts[:replication_factor]}
-          }
-          AND DURABLE_WRITES = #{durable_writes}
-          """
+    cql = to_cql(:up, opts)
     res = case Connection.query(repo, cql, [], opts) do
       {:ok, _} -> :ok
       {:error, %{code: 9216}} -> :ok
@@ -25,7 +14,7 @@ defmodule Cassandra.Ecto.Storage do
 
   def storage_down(opts) do
     {repo, opts} = start(opts, "Down")
-    cql = "DROP KEYSPACE #{opts[:keyspace]}"
+    cql = to_cql(:down, opts)
     res = case Connection.query(repo, cql, [], opts) do
       {:ok, _} -> :ok
       {:error, %{code: 8960}} -> :ok

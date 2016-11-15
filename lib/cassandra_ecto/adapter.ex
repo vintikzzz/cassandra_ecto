@@ -1,7 +1,7 @@
 defmodule Cassandra.Ecto.Adapter do
   alias Cassandra.Ecto.Connection
   alias Ecto.Query
-  import __MODULE__.CQL, only: [to_cql: 3, to_cql: 4]
+  import __MODULE__.CQL, only: [to_cql: 3, to_cql: 4, to_cql: 5]
   import Cassandra.Ecto.Helper
 
   def execute(repo, %{fields: fields}, {_cache, {func, query}}, params, process, opts) do
@@ -35,11 +35,9 @@ defmodule Cassandra.Ecto.Adapter do
     {:ok, []}
   end
 
-  def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
-    error! nil,
-      "Cassandra adapter does not support :read_after_writes in models. " <>
-      "The following fields in #{inspect meta.schema} are tagged as such: #{inspect returning}"
 
+  def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
+    read_write_error!(meta, returning)
   def insert(repo, meta, fields, _on_conflict, [], opts) do
     cql = to_cql(:insert, meta, fields, opts)
     IO.inspect cql
@@ -47,6 +45,21 @@ defmodule Cassandra.Ecto.Adapter do
     {:ok, res} = Connection.query(repo, cql, fields, opts)
     {:ok, []}
   end
+
+  def update(_repo, meta, _fields, _filters, [_|_] = returning, _opts), do:
+    read_write_error!(meta, returning)
+  def update(repo, meta, fields, filters, [], opts) do
+    cql = to_cql(:update, meta, fields, filters, opts)
+    IO.inspect cql
+    IO.inspect fields ++ filters
+    {:ok, res} = Connection.query(repo, cql, fields ++ filters, opts)
+    {:ok, []}
+  end
+
+  defp read_write_error!(meta, returning), do:
+    error! nil,
+      "Cassandra adapter does not support :read_after_writes in models. " <>
+      "The following fields in #{inspect meta.schema} are tagged as such: #{inspect returning}"
 
   def autogenerate(:id), do:
     error! nil,

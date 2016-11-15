@@ -16,7 +16,7 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
 
       create table(:posts, primary_key: false) do
         add :id,        :uuid,   primary_key: true
-        add :title,     :string, primary_key: true
+        add :title,     :string
         add :text,      :text
         add :public,    :boolean
         add :author_id, :uuid

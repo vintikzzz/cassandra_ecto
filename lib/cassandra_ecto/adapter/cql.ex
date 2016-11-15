@@ -12,23 +12,54 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     allow_filtering = allow_filtering(opts)
     assemble([select, from, where, order_by, limit, allow_filtering])
   end
-  def to_cql(:delete, %{source: {prefix, source}}, fields, opts) do
-    filter_definition = fields
-    |> Keyword.keys
-    |> Enum.map_join(" AND ", &"#{quote_name(&1)} = ?")
-    assemble(["DELETE FROM #{quote_table(prefix, source)} WHERE", filter_definition])
-  end
   def to_cql(:insert, %{source: {prefix, source}}, fields, opts) do
     header = fields |> Keyword.keys
     values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
       "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
-    assemble(["INSERT INTO", quote_table(prefix, source), values])
+    assemble(["INSERT INTO", quote_table(prefix, source), values, using(opts)])
+  end
+  def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts) do
+    header = fields |> Keyword.keys
+    values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
+      "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
+    assemble(["UPDATE", quote_table(prefix, source), using(opts), "SET", assigment(fields),
+      "WHERE", filter(filters)])
+  end
+  def to_cql(:delete, %{source: {prefix, source}}, fields, opts) do
+    assemble(["DELETE FROM", quote_table(prefix, source), using(opts), "WHERE", filter(fields)])
   end
   def to_cql(:delete_all, query, opts) do
     from  = from(query)
     where = where(query)
     assemble(["DELETE", from, where])
   end
+
+  defp using(opts) do
+    using_definitions = case using_definitions(opts) do
+      "" -> ""
+      w   -> "USING #{w}"
+    end
+  end
+
+  defp using_definitions(opts) do
+    opts
+    |> Enum.map(&using_definition/1)
+    |> Enum.reject(fn o -> o == nil  end)
+    |> Enum.uniq
+    |> Enum.join(" AND ")
+  end
+
+  @using_definitions [:ttl, :timestamp]
+  defp using_definition({key, val}) when key in @using_definitions, do:
+    assemble([String.upcase(Atom.to_string(key)), val])
+  defp using_definition(_), do: nil
+
+  defp assigment(fields), do: filter(fields, ", ")
+
+  defp filter(filter, delimiter \\ " AND "), do:
+    filter
+    |> Keyword.keys
+    |> Enum.map_join(delimiter, &"#{quote_name(&1)} = ?")
 
   defp allow_filtering([allow_filtering: true]), do: "ALLOW FILTERING"
   defp allow_filtering(_), do: []

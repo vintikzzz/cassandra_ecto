@@ -28,6 +28,7 @@ defmodule Cassandra.Ecto do
   defdelegate prepare(func, query), to: Adapter
   defdelegate execute(repo, meta, query, params, preprocess, opts), to: Adapter
   defdelegate insert(repo, meta, fields, on_conflict, returning, opts), to: Adapter
+  defdelegate update(repo, meta, fields, filters, returning, opts), to: Adapter
   defdelegate delete(repo, meta, fields, opts), to: Adapter
   defdelegate autogenerate(type), to: Adapter
   defdelegate loaders(primitive, type), to: Adapter
