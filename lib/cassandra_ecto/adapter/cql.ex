@@ -12,11 +12,11 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     allow_filtering = allow_filtering(opts)
     assemble([select, from, where, order_by, limit, allow_filtering])
   end
-  def to_cql(:insert, %{source: {prefix, source}}, fields, opts) do
+  def to_cql(:insert, %{source: {prefix, source}}, fields, on_conflict, opts) do
     header = fields |> Keyword.keys
     values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
       "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
-    assemble(["INSERT INTO", quote_table(prefix, source), values, using(opts)])
+    assemble(["INSERT INTO", quote_table(prefix, source), values, on_conflict(on_conflict), using(opts)])
   end
   def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts) do
     header = fields |> Keyword.keys
@@ -33,6 +33,12 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     where = where(query)
     assemble(["DELETE", from, where])
   end
+
+  defp on_conflict({:raise, [], []}), do: "IF NOT EXISTS"
+  defp on_conflict({:nothing, [], []}), do: []
+  defp on_conflict({_, _, _}), do:
+    error! nil,
+      "Cassandra adapter doesn't support :in_conflict queries and targets"
 
   defp using(opts) do
     using_definitions = case using_definitions(opts) do

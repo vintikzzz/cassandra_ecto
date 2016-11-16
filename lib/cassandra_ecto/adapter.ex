@@ -38,12 +38,19 @@ defmodule Cassandra.Ecto.Adapter do
 
   def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
-  def insert(repo, meta, fields, _on_conflict, [], opts) do
-    cql = to_cql(:insert, meta, fields, opts)
+  def insert(repo, meta, fields, {action, _, _} = on_conflict, [], opts) do
+    cql = to_cql(:insert, meta, fields, on_conflict, opts)
     IO.inspect cql
     IO.inspect fields
     {:ok, res} = Connection.query(repo, cql, fields, opts)
-    {:ok, []}
+    row = res.rows |> List.first
+    case {row, action} do
+      {nil,            :nothing} -> {:ok, []}
+      {[true  | []],   :raise}   -> {:ok, []}
+      {[false | data], :raise}   -> error! nil,
+        "Unable to insert #{inspect(fields)}. Record #{inspect(Enum.zip(Keyword.keys(fields), data))} " <>
+        "already exists. Use :insert_or_update for default upsert behaviour."
+    end
   end
 
   def update(_repo, meta, _fields, _filters, [_|_] = returning, _opts), do:

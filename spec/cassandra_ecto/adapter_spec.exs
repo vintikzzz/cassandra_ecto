@@ -1,7 +1,6 @@
 defmodule CassandraEctoAdapterSpec do
   import Ecto.Query
   use ESpec, async: false
-  alias Cassandra.Ecto, as: C
   alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Schemas.{Post}
 
@@ -13,21 +12,21 @@ defmodule CassandraEctoAdapterSpec do
       end
     end
     context "all/1" do
-      context "with empty data" do
-        it "returns empty list" do
-          expect(TestRepo.all(Post)) |> to(eq [])
-          expect(TestRepo.all(from p in Post)) |> to(eq [])
-        end
+      it "returns empty list if no data present in database" do
+        expect(TestRepo.all(Post)) |> to(eq [])
+        expect(TestRepo.all(from p in Post)) |> to(eq [])
       end
-      context "with no clauses" do
-        it "returns inserted data" do
-          id = Ecto.UUID.bingenerate()
-          post = TestRepo.insert!(%Post{
-            id: id, title: "hello", tags: ["abra", "cadabra"]
-          })
-          fetched_post = TestRepo.all(Post) |> List.first
-          expect(fetched_post) |> to(eq post)
-        end
+      it "returns inserted data" do
+        id = Ecto.UUID.bingenerate()
+        post = TestRepo.insert!(%Post{
+          id: id, title: "hello", tags: ["abra", "cadabra"]
+        })
+        fetched_post = TestRepo.all(Post) |> List.first
+        expect(fetched_post) |> to(eq post)
+      end
+      it "fails with wrong schema" do
+        expect(fn -> TestRepo.all("posts", prefix: "oops") end)
+        |> to(raise_exception())
       end
       context "with in clause" do
         let :id, do: Ecto.UUID.bingenerate()
@@ -59,31 +58,31 @@ defmodule CassandraEctoAdapterSpec do
           |> to(eq id)
         end
       end
-      context "with schema" do
-        it "fetches data without schema" do
-          %Post{} = TestRepo.insert!(%Post{title: "title1"})
-          %Post{} = TestRepo.insert!(%Post{title: "title2"})
-          expect(TestRepo.all(from(p in "posts", select: p.title)) |> Enum.sort)
-          |> to(eq ["title1", "title2"])
-          expect(TestRepo.all(from(p in "posts", where: p.title == "title1", select: p.title), allow_filtering: true) |> List.first)
-          |> to(eq "title1")
-        end
-        it "fails with wrong schema" do
-          expect(fn -> TestRepo.all("posts", prefix: "oops") end)
-          |> to(raise_exception())
-        end
-      end
     end
-    context "when insert/6" do
+    context "when insert/6", focus: true do
       it "inserts record" do
         post = %Post{title: "test", text: "test"}
         post = TestRepo.insert!(post)
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end
-      it "inserts record with ttl and timestamp", focus: true do
+      it "inserts record with ttl and timestamp" do
         post = %Post{title: "test", text: "test"}
-        post = TestRepo.insert!(post, ttl: 1000, timestamp: :os.system_time(:micro_seconds))
+        post = TestRepo.insert!(post, on_conflict: :nothing, ttl: 1000, timestamp: :os.system_time(:micro_seconds))
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
+      end
+      it "raises error when record already exists with on_conflict: :raise" do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post)
+        post = %Post{id: post.id, title: "new title", text: "updated text"}
+        expect(fn -> TestRepo.insert!(post) end) |> to(raise_exception(ArgumentError))
+      end
+      it "upserts data with on_conflict: :nothing" do
+        post = %Post{title: "test", text: "test"}
+        post = TestRepo.insert!(post)
+        post = %Post{id: post.id, title: "new title", text: "updated text"}
+        post = TestRepo.insert!(post, on_conflict: :nothing)
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end
@@ -94,6 +93,13 @@ defmodule CassandraEctoAdapterSpec do
         post = TestRepo.insert!(post)
         post = Ecto.Changeset.change post, text: "updated text"
         post = TestRepo.update!(post)
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
+      end
+      it "upserts data always" do
+        post = %Post{id: Ecto.UUID.bingenerate()}
+        |> Ecto.Changeset.cast(%{title: "test", text: "upserted text"}, [:title, :text])
+        |> TestRepo.update!
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end
