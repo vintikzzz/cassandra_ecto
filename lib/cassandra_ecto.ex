@@ -30,6 +30,7 @@ defmodule Cassandra.Ecto do
   defdelegate insert(repo, meta, fields, on_conflict, returning, opts), to: Adapter
   defdelegate update(repo, meta, fields, filters, returning, opts), to: Adapter
   defdelegate delete(repo, meta, fields, opts), to: Adapter
+  defdelegate insert_all(repo, meta, header, rows, on_conflict, returning, opts), to: Adapter
   defdelegate autogenerate(type), to: Adapter
   defdelegate loaders(primitive, type), to: Adapter
   defdelegate dumpers(primitive, type), to: Adapter

@@ -53,6 +53,17 @@ defmodule Cassandra.Ecto.Adapter do
     end
   end
 
+  def insert_all(repo, meta, header, rows, on_conflict, [_|_] = returning, _opts), do:
+    read_write_error!(meta, returning)
+  def insert_all(repo, meta, header, rows, on_conflict, [], opts) do
+    queries = rows
+    |> Enum.map(fn
+      row -> {to_cql(:insert, meta, row, on_conflict, opts), row}
+    end)
+    Connection.batch(repo, queries, opts)
+    {Enum.count(rows), []}
+  end
+
   def update(_repo, meta, _fields, _filters, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def update(repo, meta, fields, filters, [], opts) do

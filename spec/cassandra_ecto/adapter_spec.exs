@@ -3,6 +3,7 @@ defmodule CassandraEctoAdapterSpec do
   use ESpec, async: false
   alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Schemas.{Post}
+  import Cassandra.Ecto.Spec.Support.Factories
 
   context "Adapter behaviour" do
     before do
@@ -17,10 +18,8 @@ defmodule CassandraEctoAdapterSpec do
         expect(TestRepo.all(from p in Post)) |> to(eq [])
       end
       it "returns inserted data" do
-        id = Ecto.UUID.bingenerate()
-        post = TestRepo.insert!(%Post{
-          id: id, title: "hello", tags: ["abra", "cadabra"]
-        })
+        post = factory(:post)
+        post = TestRepo.insert!(post)
         fetched_post = TestRepo.all(Post) |> List.first
         expect(fetched_post) |> to(eq post)
       end
@@ -33,7 +32,7 @@ defmodule CassandraEctoAdapterSpec do
         let :random_ids, do:
           Enum.map((1..3), fn _ -> Ecto.UUID.bingenerate() end)
           |> Enum.to_list
-        before do: TestRepo.insert!(%Post{id: id, title: "hello", tags: ["abra", "cadabra"]})
+        before do: TestRepo.insert!(factory(:post, %{id: id}))
 
         it "raises error with empty arguments" do
           expect(fn -> TestRepo.all from p in Post, where: p.id in [] end)
@@ -59,29 +58,29 @@ defmodule CassandraEctoAdapterSpec do
         end
       end
     end
-    context "when insert/6", focus: true do
+    context "when insert/6" do
       it "inserts record" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post)
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end
       it "inserts record with ttl and timestamp" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post, on_conflict: :nothing, ttl: 1000, timestamp: :os.system_time(:micro_seconds))
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end
       it "raises error when record already exists with on_conflict: :raise" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post)
-        post = %Post{id: post.id, title: "new title", text: "updated text"}
+        post = factory(:updated_post, post)
         expect(fn -> TestRepo.insert!(post) end) |> to(raise_exception(ArgumentError))
       end
       it "upserts data with on_conflict: :nothing" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post)
-        post = %Post{id: post.id, title: "new title", text: "updated text"}
+        post = factory(:updated_post, post)
         post = TestRepo.insert!(post, on_conflict: :nothing)
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
@@ -89,7 +88,7 @@ defmodule CassandraEctoAdapterSpec do
     end
     context "when update/6" do
       it "updates record" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post)
         post = Ecto.Changeset.change post, text: "updated text"
         post = TestRepo.update!(post)
@@ -106,10 +105,17 @@ defmodule CassandraEctoAdapterSpec do
     end
     context "when delete/4" do
       it "deletes record" do
-        post = %Post{title: "test", text: "test"}
+        post = factory(:post)
         post = TestRepo.insert!(post)
         TestRepo.delete!(post)
         expect(TestRepo.all(Post) |> Enum.count) |> to(eq 0)
+      end
+    end
+    context "when insert_all/7", focus: true do
+      it "inserts multiple records in a batch" do
+        expect(TestRepo.insert_all(Post, factory(:posts), on_conflict: :nothing) |> elem(0))
+        |> to(eq 10)
+        expect(TestRepo.one(from p in Post, select: count(p.id))) |> to(eq 10)
       end
     end
   end

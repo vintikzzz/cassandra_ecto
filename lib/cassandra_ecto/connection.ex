@@ -39,6 +39,10 @@ defmodule Cassandra.Ecto.Connection do
     res = C.query(c, statement, values, opts)
     {:reply, res, c}
   end
+  def handle_call({:batch, queries, opts}, _from, c) do
+    res = C.batch(c, queries, opts)
+    {:reply, res, c}
+  end
 
   def terminate(reason, c), do: C.close_client(c)
 
@@ -55,6 +59,11 @@ defmodule Cassandra.Ecto.Connection do
   def query(repo, statement, values \\ [], opts \\ []) do
     name = pool_name(repo, opts)
     GenServer.call name, {:query, statement, values, opts}
+  end
+
+  def batch(repo, queries, opts \\ []) do
+    name = pool_name(repo, opts)
+    GenServer.call name, {:batch, queries, opts}
   end
 
   def child_spec(repo, opts), do: worker(__MODULE__, [repo, opts])

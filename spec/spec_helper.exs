@@ -1,6 +1,7 @@
 Code.require_file "../deps/ecto/integration_test/support/repo.exs", __DIR__
 Code.require_file "support/migrations.exs", __DIR__
 Code.require_file "support/schemas.exs", __DIR__
+Code.require_file "support/factories.exs", __DIR__
 
 alias Ecto.Integration.TestRepo
 
