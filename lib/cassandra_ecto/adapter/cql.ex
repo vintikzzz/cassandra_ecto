@@ -33,6 +33,34 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     where = where(query)
     assemble(["DELETE", from, where])
   end
+  def to_cql(:update_all, %{from: {from, _name}, prefix: prefix} = query, opts) do
+    fields = update_fields(query)
+    where  = where(query)
+    assemble(["UPDATE", quote_table(prefix, from), "SET", fields, where])
+  end
+
+  defp update_fields(%Query{updates: updates} = query), do:
+    for(%{expr: expr} <- updates,
+      {op, kw} <- expr,
+      {key, value} <- kw,
+      do: update_op(op, key, value, query)) |> Enum.join(", ")
+
+  defp update_op(:set, key, value, query), do:
+    quote_name(key) <> " = " <> expr(value, query)
+  defp update_op(:inc, key, value, query) do
+    quoted = quote_name(key)
+    quoted <> " = " <> quoted <> " + " <> expr(value, query)
+  end
+  defp update_op(:push, key, value, query) do
+    quoted = quote_name(key)
+    quoted <> " = " <> quoted <> " + [" <> expr(value, query) <> "]"
+  end
+  defp update_op(:pull, key, value, query) do
+    quoted = quote_name(key)
+    quoted <> " = " <> quoted <> " - [" <> expr(value, query) <> "]"
+  end
+  defp update_op(command, _key, _value, query), do:
+    error!(query, "Cassandra adapter doesn't support #{inspect command} update operation")
 
   defp on_conflict({:raise, [], []}), do: "IF NOT EXISTS"
   defp on_conflict({:nothing, [], []}), do: []

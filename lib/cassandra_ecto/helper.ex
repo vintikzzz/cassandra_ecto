@@ -40,29 +40,40 @@ defmodule Cassandra.Ecto.Helper do
     |> Enum.join(joiner)
   end
 
-  def get_names(%Query{wheres: []}), do: []
-  def get_names(%Query{wheres: wheres} = query) do
-    Enum.map(wheres, fn
-      %{expr: expr} -> get_names(expr)
-    end)
+  def get_names(%Query{wheres: wheres, updates: updates} = query), do:
+    get_update_names(query) ++ get_where_names(query)
     |> List.flatten
-    |> Enum.sort(&(elem(&1, 0) > elem(&2, 0)))
+    |> Enum.sort(&(elem(&1, 0) < elem(&2, 0)))
     |> Enum.unzip
     |> elem(1)
+
+  defp get_update_names(%Query{updates: []}), do: []
+  defp get_update_names(%Query{updates: updates}) do
+    for(%{expr: expr} <- updates,
+      {op, kw} <- expr,
+      {key, value} <- kw,
+      do: get_update_names(op, key, value))
   end
-  def get_names({fun, _, [{{:., _, [{:&, _, [idx]}, field]}, _, []}, {:^, [], [ix]}]}), do:
+  defp get_update_names(_op, key, {:^, [], [ix]}), do: {ix, key}
+  defp get_update_names(_), do: []
+  defp get_where_names(%Query{wheres: wheres}), do:
+    Enum.map(wheres, fn
+      %{expr: expr} -> get_where_names(expr)
+    end)
+  defp get_where_names(%Query{wheres: []}), do: []
+  defp get_where_names({fun, _, [{{:., _, [{:&, _, [_idx]}, field]}, _, []}, {:^, [], [ix]}]}), do:
     {ix, field}
-  def get_names({fun, _, [{:^, [], [ix]}, {{:., _, [{:&, _, [idx]}, field]}, _, []}]}), do:
+  defp get_where_names({fun, _, [{:^, [], [ix]}, {{:., _, [{:&, _, [_idx]}, field]}, _, []}]}), do:
     {ix, field}
-  def get_names({fun, _, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, [{:^, [], [ix]}]]}), do:
+  defp get_where_names({fun, _, [{{:., [], [{:&, [], [_idx]}, field]}, [], []}, [{:^, [], [ix]}]]}), do:
     {ix, field}
-  def get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, [head | tail]]}), do:
+  defp get_where_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, [head | tail]]}), do:
     [
-      get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, head]}),
-      get_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, tail]}),
+      get_where_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, head]}),
+      get_where_names({fun, _meta, [{{:., [], [{:&, [], [idx]}, field]}, [], []}, tail]}),
     ]
-  def get_names({fun, _, [left, right]}), do: [get_names(left), get_names(right)]
-  def get_names({{:., [], [{:&, [], [ix]}, field]}, [], []}), do:
+  defp get_where_names({fun, _, [left, right]}), do: [get_where_names(left), get_where_names(right)]
+  defp get_where_names({{:., [], [{:&, [], [ix]}, field]}, [], []}), do:
     {ix, field}
-  def get_names(_), do: []
+  defp get_where_names(_), do: []
 end
