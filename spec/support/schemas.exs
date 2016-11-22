@@ -55,7 +55,7 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
     alias Cassandra.Ecto.Spec.Support.Schemas.User
     embedded_schema do
       field :text, :string
-      field :posted_at, :date
+      field :posted_at, :utc_datetime
       belongs_to :user, User
     end
   end

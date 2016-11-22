@@ -100,6 +100,10 @@ defmodule Cassandra.Ecto.Adapter do
     value = struct(schema, value)
     Ecto.Type.cast(type, value)
   end
+  defp load_embed({:embed, %{cardinality: :many, related: schema}} = type, value) do
+    value = value |> Enum.map(&struct(schema, &1))
+    Ecto.Type.cast(type, value)
+  end
 
   defp timestamp_decode(timestamp) do
     usec = timestamp |> rem(1_000_000)

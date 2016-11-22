@@ -5,6 +5,10 @@ defmodule Cassandra.Ecto.Spec.Support.Factories do
     Enum.map((1..10), fn
       arg -> Map.merge(args, %{title: "title #{arg}", text: "text #{arg}"})
     end)
+  def factory(:comments, args, _opts), do:
+    Enum.map((1..10), fn
+      arg -> Map.merge(args, %{text: "text #{arg}", posted_at: Ecto.DateTime.utc(:usec)})
+    end)
   def factory(type, args, with: items) when is_list(items), do:
     Enum.reduce(items, factory(type, args, []), fn
       (p, acc) -> Map.merge(acc, factory({type, p}, %{}, []))

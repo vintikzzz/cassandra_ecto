@@ -13,7 +13,7 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
         add :id,        :uuid
         add :author_id, :uuid
         add :text,      :text
-        add :posted_at, :date
+        add :posted_at, :utc_datetime
       end
 
       create table(:users, primary_key: false) do

@@ -10,19 +10,29 @@ defmodule CassandraEctoAssocSpec do
         :ok         -> :ok
       end
     end
-    context "with embeds_one" do
-      it "embeds data" do
-        user = factory(:user)
-        user = TestRepo.insert!(user)
-        changeset = Ecto.Changeset.change(user)
-        info = factory(:personal_info)
-        changeset = Ecto.Changeset.put_embed(changeset, :personal_info, info)
-        changeset = TestRepo.update!(changeset)
-        user = TestRepo.get!(User, user.id)
-        expect(user.personal_info.first_name) |> to(eq info.first_name)
-        expect(user.personal_info.last_name)  |> to(eq info.last_name)
-        expect(user.personal_info.birthdate)  |> to(eq info.birthdate)
-      end
+    it "embeds one" do
+      user = factory(:user)
+      user = TestRepo.insert!(user)
+      changeset = Ecto.Changeset.change(user)
+      info = factory(:personal_info)
+      changeset = Ecto.Changeset.put_embed(changeset, :personal_info, info)
+      changeset = TestRepo.update!(changeset)
+      user = TestRepo.get!(User, user.id)
+      expect(user.personal_info.first_name) |> to(eq info.first_name)
+      expect(user.personal_info.last_name)  |> to(eq info.last_name)
+      expect(user.personal_info.birthdate)  |> to(eq info.birthdate)
+    end
+    it "embeds many" do
+      user = factory(:user)
+      user = TestRepo.insert!(user)
+      post = factory(:post)
+      post = TestRepo.insert!(post)
+      comments = factory(:comments, %{user_id: user.id})
+      changeset = Ecto.Changeset.change(post)
+      changeset = Ecto.Changeset.put_embed(changeset, :comments, comments)
+      changeset = TestRepo.update!(changeset)
+      post = TestRepo.get!(Post, post.id)
+      expect(Enum.count(post.comments)) |> to(eq 10)
     end
   end
 end
