@@ -89,11 +89,17 @@ defmodule Cassandra.Ecto.Adapter do
 
   # def loaders(:binary_id, type), do: [Ecto.UUID, type]
   def loaders(datetime, type) when datetime in @datetimes, do: [&timestamp_decode/1, type]
+  def loaders({:embed, _} = type, _), do: [&load_embed(type, &1)]
   def loaders(_primitive, type), do: [type]
 
   # def dumpers(:binary_id, type), do: [type, Ecto.UUID]
   def dumpers(datetime, type) when datetime in @datetimes, do: [type, &timestamp_encode/1]
   def dumpers(_primitive, type), do: [type]
+
+  defp load_embed({:embed, %{cardinality: :one, related: schema}} = type, value) do
+    value = struct(schema, value)
+    Ecto.Type.cast(type, value)
+  end
 
   defp timestamp_decode(timestamp) do
     usec = timestamp |> rem(1_000_000)

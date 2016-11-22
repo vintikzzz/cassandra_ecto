@@ -13,7 +13,7 @@ defmodule CassandraEctoMigrationSpec do
     CustomIndexWithOptsMigration, CreateUserTypeMigration,
     AlterTypeMigration, CreateCounterMigration
   }
-  context "Migration behaviour" do
+  describe "Migration behaviour" do
     before do
       :ok = C.storage_up(TestRepo.config)
     end

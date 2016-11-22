@@ -51,14 +51,14 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     quoted = quote_name(key)
     quoted <> " = " <> quoted <> " + " <> expr(value, query)
   end
-  defp update_op(:push, key, value, query) do
-    quoted = quote_name(key)
-    quoted <> " = " <> quoted <> " + [" <> expr(value, query) <> "]"
-  end
-  defp update_op(:pull, key, value, query) do
-    quoted = quote_name(key)
-    quoted <> " = " <> quoted <> " - [" <> expr(value, query) <> "]"
-  end
+  # defp update_op(:push, key, value, query) do
+  #   quoted = quote_name(key)
+  #   quoted <> " = " <> quoted <> " + " <> expr(value, query)
+  # end
+  # defp update_op(:pull, key, value, query) do
+  #   quoted = quote_name(key)
+  #   quoted <> " = " <> quoted <> " - [" <> expr(value, query) <> "]"
+  # end
   defp update_op(command, _key, _value, query), do:
     error!(query, "Cassandra adapter doesn't support #{inspect command} update operation")
 

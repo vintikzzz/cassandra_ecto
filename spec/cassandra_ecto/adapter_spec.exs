@@ -2,10 +2,10 @@ defmodule CassandraEctoAdapterSpec do
   import Ecto.Query
   use ESpec, async: false
   alias Ecto.Integration.TestRepo
-  alias Cassandra.Ecto.Spec.Support.Schemas.{Post}
+  alias Cassandra.Ecto.Spec.Support.Schemas.{Post, PostStats, User}
   import Cassandra.Ecto.Spec.Support.Factories
 
-  context "Adapter behaviour" do
+  describe "Adapter behaviour" do
     before do
       case Ecto.Migrator.up(TestRepo, 0, Cassandra.Ecto.Spec.Support.Migrations.PostsMigration, log: false) do
         :already_up -> :ok
@@ -33,7 +33,7 @@ defmodule CassandraEctoAdapterSpec do
           let :random_ids, do:
             Enum.map((1..3), fn _ -> Ecto.UUID.bingenerate() end)
             |> Enum.to_list
-          before do: TestRepo.insert!(factory(:post, %{id: id}))
+          before do: TestRepo.insert!(factory(:post, %{id: id}, with: [:tags]))
 
           it "raises error with empty arguments" do
             expect(fn -> TestRepo.all from p in Post, where: p.id in [] end)
@@ -63,14 +63,22 @@ defmodule CassandraEctoAdapterSpec do
         it "updates all records that matches query" do
           TestRepo.insert_all(Post, factory(:posts), on_conflict: :nothing)
           post = TestRepo.one(from p in Post, limit: 1)
-          TestRepo.update_all((from p in Post, where: p.id == ^post.id), set: [title: "x", text: "y"])
+          TestRepo.update_all((from p in Post, where: p.id == ^post.id), set: [title: "x", text: "y", tags: ["oh", "my", "god"]])
           post = TestRepo.one(from p in Post, where:  p.id == ^post.id)
           expect(post.title) |> to(eq "x")
           expect(post.text)  |> to(eq "y")
+          expect(post.tags)  |> to(eq ["god", "my", "oh"])
+        end
+        it "increments counters with :inc" do
+          post = factory(:post)
+          post = TestRepo.insert!(post)
+          TestRepo.update_all((from p in PostStats, where: p.id == ^post.id), inc: [visits: 5])
+          stats = TestRepo.one(from p in PostStats, where: p.id == ^post.id)
+          expect(stats.visits) |> to(eq 5)
         end
       end
       context "with :delete_all" do
-        it "deletes all records that matches query", focus: true do
+        it "deletes all records that matches query" do
           TestRepo.insert_all(Post, factory(:posts), on_conflict: :nothing)
           post = TestRepo.one(from p in Post, limit: 1)
           TestRepo.delete_all(from p in Post, where: p.id == ^post.id)
@@ -88,6 +96,12 @@ defmodule CassandraEctoAdapterSpec do
       it "inserts record with ttl and timestamp" do
         post = factory(:post)
         post = TestRepo.insert!(post, on_conflict: :nothing, ttl: 1000, timestamp: :os.system_time(:micro_seconds))
+        fetched_post = TestRepo.one(Post)
+        expect(fetched_post) |> to(eq post)
+      end
+      it "inserts tuples, maps and sets" do
+        post = factory(:post, %{}, with: [:location, :tags, :links])
+        post = TestRepo.insert!(post)
         fetched_post = TestRepo.one(Post)
         expect(fetched_post) |> to(eq post)
       end

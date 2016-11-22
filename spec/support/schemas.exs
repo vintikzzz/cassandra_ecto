@@ -10,11 +10,21 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
   end
   defmodule User do
     use Schema
+    alias Cassandra.Ecto.Spec.Support.Schemas.{Post, PersonalInfo}
     schema "users" do
       @primary_key {:id, :binary_id, autogenerate: true}
-      field :name,     :string
-      has_many :posts, Post
+      field      :name,  :string
+      has_many   :posts, Post
+      embeds_one :personal_info, PersonalInfo
       timestamps()
+    end
+  end
+  defmodule PersonalInfo do
+    use Schema
+    embedded_schema do
+      field :first_name, :string
+      field :last_name,  :string
+      field :birthdate,  Cassandra.Types.Tuple
     end
   end
   defmodule Post do
@@ -26,14 +36,23 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
       field :text,     :string
       field :public,   :boolean
       field :tags,     {:array, :string}
-      field :location, {:array, :float}
+      field :location, Cassandra.Types.Tuple
+      field :links,    {:map, :string}
       embeds_many :comments, Comment
-      belongs_to  :author, User
+      belongs_to  :author,   User
       timestamps()
+    end
+  end
+  defmodule PostStats do
+    use Schema
+    schema "post_stats" do
+      @primary_key {:id, :binary_id}
+      field :visits,   :integer
     end
   end
   defmodule Comment do
     use Schema
+    alias Cassandra.Ecto.Spec.Support.Schemas.User
     embedded_schema do
       field :text, :string
       field :posted_at, :date

@@ -2,16 +2,25 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
   defmodule PostsMigration do
     use Cassandra.Ecto.Migration
     def change do
-      create table(:users, primary_key: false) do
-        add :id,        :uuid,   primary_key: true
-        add :name,      :string
-        timestamps null: true
+      create type(:personal_info) do
+        add :id,         :uuid
+        add :first_name, :string
+        add :last_name,  :string
+        add :birthdate,  {:tuple, {:int, :int, :int}}
       end
 
       create type(:comment) do
+        add :id,        :uuid
         add :author_id, :uuid
         add :text,      :text
         add :posted_at, :date
+      end
+
+      create table(:users, primary_key: false) do
+        add :id,        :uuid,   primary_key: true
+        add :name,      :string
+        add :personal_info, :personal_info
+        timestamps null: true
       end
 
       create table(:posts, primary_key: false) do
@@ -21,9 +30,14 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
         add :public,    :boolean
         add :author_id, :uuid
         add :tags,      {:set,   :string}
+        add :links,     {:map,   {:string, :string}}
         add :comments,  {:array, {:frozen, :comment}}
         add :location,  {:tuple, {:float, :float}}
         timestamps null: true
+      end
+      create table(:post_stats, primary_key: false) do
+        add :id,        :uuid,   primary_key: true
+        add :visits,    :counter
       end
     end
   end
@@ -63,7 +77,7 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
         add :value9,  :map
         add :value10, {:map, :integer}
         add :value11, :date
-        add :value12, :datetime
+        add :value12, :utc_datetime
         add :value13, :time
         add :value14, {:set, :integer}
         add :value15, {:map, {:integer, :integer}}

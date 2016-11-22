@@ -2,7 +2,7 @@ defmodule CassandraEctoStorageSpec do
   alias Cassandra.Ecto, as: C
   alias Ecto.Integration.TestRepo
   use ESpec, async: false
-  context "Storage behaviour" do
+  describe "Storage behaviour" do
     context "when storage_up/1" do
       it "creates new keyspace" do
         assert :ok = C.storage_up(TestRepo.config)
