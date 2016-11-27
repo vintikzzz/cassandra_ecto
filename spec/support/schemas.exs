@@ -14,7 +14,7 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
     schema "users" do
       @primary_key {:id, :binary_id, autogenerate: true}
       field      :name,  :string
-      has_many   :posts, Post
+      has_many   :posts, Post, foreign_key: :author_id
       embeds_one :personal_info, PersonalInfo
       timestamps()
     end

@@ -9,7 +9,7 @@ defmodule Cassandra.Types do
   end
   defmodule Tuple do
     @behaviour Ecto.Type
-    def type, do: :custom
+    def type, do: :tuple
     def cast(value), do: {:ok, value}
     def load(value), do: {:ok, value}
     def dump(value) when is_tuple(value), do: {:ok, value}
