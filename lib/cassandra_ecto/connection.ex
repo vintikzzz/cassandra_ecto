@@ -2,12 +2,15 @@ defmodule Cassandra.Ecto.Connection do
   use GenServer
   import Supervisor.Spec
   alias Cassandrex, as: C
+  alias Cassandra.Ecto.Log
 
   @conn_opts [:keyspace, :auth, :ssl, :protocol_version,
     :pool_max_size, :pool_min_size, :pool_cull_interval]
 
   @default_host "127.0.0.1"
   @default_port 9042
+  @default_timeout 5000
+  @default_consistency :one
 
   def init({repo, opts}) do
     config = repo.__pool__
@@ -58,13 +61,42 @@ defmodule Cassandra.Ecto.Connection do
 
   def query(repo, statement, values \\ [], opts \\ []) do
     name = pool_name(repo, opts)
-    GenServer.call name, {:query, statement, values, opts}
+    fn -> GenServer.call(name, {:query, statement, values, opts}) end
+    |> with_log(repo, statement, values, opts)
   end
 
   def batch(repo, queries, opts \\ []) do
     name = pool_name(repo, opts)
-    GenServer.call name, {:batch, queries, opts}
+    fn -> GenServer.call(name, {:batch, queries, opts}) end
+    |> with_log(repo, queries, opts)
   end
 
   def child_spec(repo, opts), do: worker(__MODULE__, [repo, opts])
+
+  defp with_log(res, repo, statement, values, opts) do
+    case Keyword.get(opts, :log, false) do
+      true  ->
+        log(repo, statement, values, opts, res)
+      false -> res.()
+    end
+  end
+  defp with_log(res, repo, queries, opts) do
+    case Keyword.get(opts, :log, false) do
+      true ->
+        statement = "BEGIN BATCH\n" <> Enum.map_join(queries, "\n", fn
+          {statement, values} -> statement <> " " <> inspect(values)
+        end) <> "\nAPPLY BATCH;"
+        log(repo, statement, [], opts, res)
+      false -> res.()
+    end
+  end
+  defp log(repo, statement, values, opts, res) do
+    start = :os.system_time(:nano_seconds)
+    res = res.()
+    connection_time = :os.system_time(:nano_seconds) - start
+    entry = %{connection_time: connection_time, decode_time: nil,
+      pool_time: nil, result: res, query: statement}
+    Log.log(repo, values, entry, opts)
+    res
+  end
 end

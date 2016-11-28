@@ -8,9 +8,6 @@ defmodule Cassandra.Ecto.Adapter do
     cql = to_cql(func, query, opts)
     names = get_names(query)
     params = Enum.zip(names, params)
-    IO.inspect opts
-    IO.inspect cql
-    IO.inspect params
     case Connection.query(repo, cql, params, opts) do
       {:ok, %{rows: rows, num_rows: num}} -> {num, rows |> Enum.map(&process_row(&1, process, fields)) }
       {:error, err} -> raise err
@@ -29,8 +26,6 @@ defmodule Cassandra.Ecto.Adapter do
   def delete(repo, meta, fields, opts) do
     cql = to_cql(:delete, meta, fields, opts)
 
-    IO.inspect cql
-    IO.inspect fields
     {:ok, res} = Connection.query(repo, cql, fields, opts)
     {:ok, []}
   end
@@ -40,8 +35,6 @@ defmodule Cassandra.Ecto.Adapter do
     read_write_error!(meta, returning)
   def insert(repo, meta, fields, {action, _, _} = on_conflict, [], opts) do
     cql = to_cql(:insert, meta, fields, on_conflict, opts)
-    IO.inspect cql
-    IO.inspect fields
     {:ok, res} = Connection.query(repo, cql, fields, opts)
     row = res.rows |> List.first
     case {row, action} do
@@ -68,8 +61,6 @@ defmodule Cassandra.Ecto.Adapter do
     read_write_error!(meta, returning)
   def update(repo, meta, fields, filters, [], opts) do
     cql = to_cql(:update, meta, fields, filters, opts)
-    IO.inspect cql
-    IO.inspect fields ++ filters
     {:ok, res} = Connection.query(repo, cql, fields ++ filters, opts)
     {:ok, []}
   end

@@ -22,8 +22,6 @@ defmodule Cassandra.Ecto.Migration do
 
   def execute_ddl(repo, command, opts) do
     cql = to_cql(command)
-    IO.inspect opts
-    IO.inspect cql
     {:ok, _} = Connection.query(repo, cql, [], opts)
   end
 end
