@@ -36,7 +36,7 @@ defmodule CassandraEctoAssocSpec do
       post = TestRepo.get!(Post, post.id)
       expect(Enum.count(post.comments)) |> to(eq 10)
     end
-    it "supports one to many relation", focus: true do
+    it "supports one to many relation" do
       user = factory(:user)
       user = TestRepo.insert!(user)
       posts = factory(:posts, %{author_id: user.id})

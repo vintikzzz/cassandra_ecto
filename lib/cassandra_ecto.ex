@@ -35,12 +35,6 @@ defmodule Cassandra.Ecto do
   defdelegate loaders(primitive, type), to: Adapter
   defdelegate dumpers(primitive, type), to: Adapter
 
-  # def insert_all(repo, meta, _header, fields, returning, _opts) do
-  # end
-  #
-  # def update(repo, meta, fields, filters, returning, _opts) do
-  # end
-
   ## Storage
   alias Cassandra.Ecto.Storage
   defdelegate storage_up(opts), to: Storage

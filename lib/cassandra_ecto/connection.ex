@@ -7,19 +7,23 @@ defmodule Cassandra.Ecto.Connection do
   @conn_opts [:keyspace, :auth, :ssl, :protocol_version,
     :pool_max_size, :pool_min_size, :pool_cull_interval]
 
+
   @default_host "127.0.0.1"
   @default_port 9042
-  @default_timeout 5000
-  @default_consistency :one
+  @default_opts [timeout: 5000, consistency: :one,
+                 batch_mode: :logged, log: false]
 
   def init({repo, opts}) do
     config = repo.__pool__
     name = pool_name(repo, opts)
     nodes = Keyword.get(config, :nodes, [{@default_host, @default_port}])
-    conn_opts = prepare_conn_opts(config)
-    conn_opts = Keyword.put_new(opts, :keyspace, Mix.env)
-    if (opts[:use_keyspace] == false), do:
-      conn_opts = Keyword.delete(conn_opts, :keyspace)
+    conn_opts = config
+    |> prepare_conn_opts
+    |> Keyword.put_new(:keyspace, Mix.env)
+    conn_opts = case opts[:use_keyspace] do
+      false -> Keyword.delete(conn_opts, :keyspace)
+      _     -> conn_opts
+    end
     C.add_nodes(name, nodes, conn_opts)
     {:ok, c} = C.get_client(name)
     {:ok, c}
@@ -47,7 +51,7 @@ defmodule Cassandra.Ecto.Connection do
     {:reply, res, c}
   end
 
-  def terminate(reason, c), do: C.close_client(c)
+  def terminate(_reason, c), do: C.close_client(c)
 
   def start_link(repo, opts) do
     name = pool_name(repo, opts)
@@ -60,28 +64,33 @@ defmodule Cassandra.Ecto.Connection do
   end
 
   def query(repo, statement, values \\ [], opts \\ []) do
+    opts = prepare_opts(repo, opts)
     name = pool_name(repo, opts)
-    fn -> GenServer.call(name, {:query, statement, values, opts}) end
+    fn -> GenServer.call(name, {:query, statement, values, opts}, opts[:timeout]) end
     |> with_log(repo, statement, values, opts)
   end
 
   def batch(repo, queries, opts \\ []) do
+    opts = prepare_opts(repo, opts)
     name = pool_name(repo, opts)
-    fn -> GenServer.call(name, {:batch, queries, opts}) end
+    fn -> GenServer.call(name, {:batch, queries, opts}, opts[:timeout]) end
     |> with_log(repo, queries, opts)
   end
 
   def child_spec(repo, opts), do: worker(__MODULE__, [repo, opts])
 
+  defp prepare_opts(repo, opts), do:
+    Keyword.merge(opts, @default_opts)
+
   defp with_log(res, repo, statement, values, opts) do
-    case Keyword.get(opts, :log, false) do
+    case opts[:log] do
       true  ->
         log(repo, statement, values, opts, res)
       false -> res.()
     end
   end
   defp with_log(res, repo, queries, opts) do
-    case Keyword.get(opts, :log, false) do
+    case opts[:log] do
       true ->
         statement = "BEGIN BATCH\n" <> Enum.map_join(queries, "\n", fn
           {statement, values} -> statement <> " " <> inspect(values)
