@@ -80,7 +80,7 @@ defmodule Cassandra.Ecto.Connection do
   def child_spec(repo, opts), do: worker(__MODULE__, [repo, opts])
 
   defp prepare_opts(repo, opts), do:
-    Keyword.merge(opts, @default_opts)
+    Keyword.merge(@default_opts, opts)
 
   defp with_log(res, repo, statement, values, opts) do
     case opts[:log] do

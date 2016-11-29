@@ -47,6 +47,15 @@ defmodule Cassandra.Ecto.Helper do
     |> Enum.unzip
     |> elem(1)
 
+  def process_row(row, process, fields) do
+    Enum.map_reduce(fields, row, fn
+      {:&, _, [_, _, counter]} = field, acc ->
+        {process.(field, acc, nil), []}
+      field, [h|t] ->
+        {process.(field, h, nil), t}
+    end) |> elem(0)
+  end
+
   defp get_update_names(%Query{updates: []}), do: []
   defp get_update_names(%Query{updates: updates}) do
     for(%{expr: expr} <- updates,

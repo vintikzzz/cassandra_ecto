@@ -14,15 +14,6 @@ defmodule Cassandra.Ecto.Adapter do
     end
   end
 
-  defp process_row(row, process, fields) do
-    Enum.map_reduce(fields, row, fn
-      {:&, _, [_, _, counter]} = field, acc ->
-        {process.(field, acc, nil), []}
-      field, [h|t] ->
-        {process.(field, h, nil), t}
-    end) |> elem(0)
-  end
-
   def delete(repo, meta, fields, opts) do
     cql = to_cql(:delete, meta, fields, opts)
 

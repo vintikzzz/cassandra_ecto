@@ -8,7 +8,6 @@ defmodule Cassandra.Ecto.Storage.CQL do
     })
     |> Keyword.put_new(:durable_writes, true)
     {repl_class, repl_opts} = opts[:replication]
-    durable_writes = opts[:durable_writes] || true
     """
     CREATE KEYSPACE #{opts[:keyspace]}
     WITH REPLICATION = {

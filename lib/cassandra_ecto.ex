@@ -44,4 +44,8 @@ defmodule Cassandra.Ecto do
   alias Cassandra.Ecto.Migration
   defdelegate execute_ddl(repo, command, opts), to: Migration
   def supports_ddl_transaction?, do: false
+
+  ## Stream
+  alias Cassandra.Ecto.Stream
+  defdelegate stream(repo, meta, prepared, params, preprocess, opts), to: Stream
 end

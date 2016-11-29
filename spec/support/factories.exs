@@ -1,10 +1,12 @@
 defmodule Cassandra.Ecto.Spec.Support.Factories do
   alias Cassandra.Ecto.Spec.Support.Schemas.{Post, User, PersonalInfo}
   def factory(type, args \\ %{}, opts \\ [])
-  def factory(:posts, args, _opts), do:
-    Enum.map((1..10), fn
+  def factory(:posts, args, opts) do
+    opts = opts |> Keyword.put_new(:num, 10)
+    Enum.map((1..opts[:num]), fn
       arg -> Map.merge(args, %{title: "title #{arg}", text: "text #{arg}"})
     end)
+  end
   def factory(:comments, args, _opts), do:
     Enum.map((1..10), fn
       arg -> Map.merge(args, %{text: "text #{arg}", posted_at: Ecto.DateTime.utc(:usec)})
