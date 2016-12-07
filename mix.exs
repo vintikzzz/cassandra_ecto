@@ -62,7 +62,7 @@ defmodule CassandraEcto.Mixfile do
   defp package do
     [maintainers: ["Pavel Tatarskiy"],
      licenses: ["Apache 2.0"],
-     links: %{"GitHub" => "https://github.com/vintikzzz/ecto_cassandra"},
+     links: %{"GitHub" => "https://github.com/vintikzzz/cassandra_ecto"},
      files: ~w(mix.exs README.md lib)]
   end
 end
