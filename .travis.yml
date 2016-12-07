@@ -1,0 +1,33 @@
+language: elixir
+elixir:
+  - 1.3.4
+otp_release:
+  - 19.1
+sudo: required
+dist: trusty
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - build-essential
+      - gcc-4.9
+      - g++-4.9
+      - oracle-java8-installer
+before_install:
+  - export CXX="g++-4.9"
+  - sudo update-java-alternatives -s java-8-oracle
+  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
+  - java -version
+  - wget https://www.dropbox.com/s/f86zyi3qmhqvfbp/apache-cassandra-3.9.tar.gz?dl=1 -O apache-cassandra-3.9.tar.gz && tar -xvzf apache-cassandra-3.9.tar.gz
+  - sudo sh ./apache-cassandra-3.9/bin/cassandra -R
+  - sleep 20
+install:
+  - MIX_ENV=test mix do local.hex --force, local.rebar --force, deps.get
+script:
+  - MIX_ENV=test mix espec
+after_script:
+  - MIX_ENV=test mix do coveralls.travis, inch.report
+notifications:
+  recipients:
+    - pavel@tatarsky.ru

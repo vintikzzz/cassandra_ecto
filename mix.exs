@@ -1,22 +1,34 @@
 defmodule CassandraEcto.Mixfile do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [app: :cassandra_ecto,
-     version: "0.1.0",
+     version: @version,
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     preferred_cli_env: [espec: :test],
-     test_coverage: [tool: Coverex.Task],
-     deps: deps()]
+     test_coverage: [tool: ExCoveralls, test_task: "espec"],
+     preferred_cli_env: ["coveralls": :test, "coveralls.detail": :test, "coveralls.post": :test, "coveralls.html": :test, espec: :test],
+     deps: deps(),
+
+     # Hex
+     description: description(),
+     package: package(),
+
+     # Docs
+     name: "Cassandra.Ecto",
+     docs: [source_ref: "v#{@version}", main: "Cassandra.Ecto",
+            canonical: "http://hexdocs.pm/cassandra_ecto",
+            source_url: "https://github.com/vintikzzz/cassandra_ecto"]]
   end
 
   # Configuration for the OTP application
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:ecto, :cassandrex]]
+    [applications: [:ecto, :cassandrex, :cqerl]]
   end
 
   # Dependencies can be Hex packages:
@@ -30,10 +42,27 @@ defmodule CassandraEcto.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:cassandrex, path: "../cassandrex"},
-      {:ecto, path: "../ecto"},
-      {:espec, "~> 1.0.1", only: :test},
-      {:coverex, "~> 1.4.10", only: :test},
+      {:cqerl, github: "matehat/cqerl", tag: "v1.0.2", only: :test},
+      {:cassandrex, "~> 0.1.0"},
+      {:ecto, "~> 2.1.0-rc.4"},
+      {:espec, "~> 1.2.0", only: :test},
+      {:excoveralls, "~> 0.5", only: :test},
+      {:credo, "~> 0.5", only: [:dev, :test]},
+      {:ex_doc, "~> 0.14", only: :dev},
+      {:inch_ex, "~> 0.5.5", only: [:dev, :test]}
     ]
+  end
+
+  defp description do
+    """
+    Ecto integration with Cassandra.
+    """
+  end
+
+  defp package do
+    [maintainers: ["Pavel Tatarskiy"],
+     licenses: ["Apache 2.0"],
+     links: %{"GitHub" => "https://github.com/vintikzzz/ecto_cassandra"},
+     files: ~w(mix.exs README.md lib)]
   end
 end

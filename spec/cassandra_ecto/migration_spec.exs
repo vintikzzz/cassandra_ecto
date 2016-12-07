@@ -11,7 +11,8 @@ defmodule CassandraEctoMigrationSpec do
     CreateWithStaticColumnMigration, CreateWithFrozenTypeMigration,
     CreateWithDifferentTypesMigration, CustomIndexMigration,
     CustomIndexWithOptsMigration, CreateUserTypeMigration,
-    AlterTypeMigration, CreateCounterMigration
+    AlterTypeMigration, CreateCounterMigration, CreateWithPrimaryAndPartitionKeys,
+    CreateWithWithoutPrimaryAndPartitionKeys
   }
   describe "Cassandra.Ecto" do
     describe "Migration behaviour" do
@@ -32,6 +33,14 @@ defmodule CassandraEctoMigrationSpec do
             it "creates table with compound primary key and properties" do
               assert :ok = up(TestRepo, 24050906120000, CreateWithCompoundPrimaryKeyAndPropertiesMigration, log: false)
               down(TestRepo, 24050906120000, CreateWithCompoundPrimaryKeyAndPropertiesMigration, log: false)
+            end
+            it "fails to create table with primary and partition keys" do
+              expect(fn -> up(TestRepo, 84050906120000, CreateWithPrimaryAndPartitionKeys, log: false) end)
+              |> to(raise_exception())
+            end
+            it "fails to create table without primary and partition keys", focus: true do
+              expect(fn -> up(TestRepo, 85050906120000, CreateWithWithoutPrimaryAndPartitionKeys, log: false) end)
+              |> to(raise_exception())
             end
             it "creates table with static column" do
               assert :ok = up(TestRepo, 14050906120000, CreateWithStaticColumnMigration, log: false)

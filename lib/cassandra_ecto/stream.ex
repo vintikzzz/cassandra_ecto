@@ -1,4 +1,7 @@
 defmodule Cassandra.Ecto.Stream do
+  @moduledoc """
+  Streaming support.
+  """
   alias Cassandra.Ecto.Connection
   import Cassandra.Ecto.Adapter.CQL, only: [to_cql: 3]
   import Cassandra.Ecto.Helper,      only: [get_names: 1]

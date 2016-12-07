@@ -1,4 +1,8 @@
 defmodule Cassandra.Ecto.Migration.CQL do
+  @moduledoc """
+  Generates CQL-queries for Cassandra DDL statements.
+  """
+
   alias Ecto.Migration.{Table, Index, Reference, Constraint}
   import Cassandra.Ecto.Helper
 
@@ -24,13 +28,13 @@ defmodule Cassandra.Ecto.Migration.CQL do
       quote_table(index.prefix, index.table), "(#{fields})", index_using(index),
       with_definitions_any(index)])
   end
-  def to_cql({_command, %Constraint{} = constraint}), do:
+  def to_cql({_command, %Constraint{} = _constraint}), do:
     error! nil, "Cassandra adapter does not support constraints"
   def to_cql({:alter, %Table{} = table, changes}), do:
     assemble([alter(table), column_changes(table, changes)])
   def to_cql({:rename, %Table{} = table, old, new}), do:
     assemble([alter(table), "RENAME", quote_name(old), "TO", quote_name(new)])
-  def to_cql({:rename, %Table{} = old, %Table{} = new}), do:
+  def to_cql({:rename, %Table{} = _old, %Table{} = _new}), do:
     error! nil, "Cassandra adapter does not support table renaming"
   def to_cql(string) when is_binary(string), do: string
   def to_cql({command, %Table{options: [as: :type]} = table}) when command in @drops, do:
@@ -72,10 +76,7 @@ defmodule Cassandra.Ecto.Migration.CQL do
     assemble(["ALTER ", quote_name(name), "TYPE", column_type(type, opts)])
   defp column_change(_table, {:remove, name}), do: "DROP #{quote_name(name)}"
 
-  defp reference_column_type(type, opts), do:
-    column_type(type, opts)
-
-  defp column_definition(_table, {:add, name, %Reference{} = ref, opts}), do:
+  defp column_definition(_table, {:add, _name, %Reference{} = _ref, _opts}), do:
     error! nil, "Cassandra adapter does not support references"
 
   defp column_definition(_table, {:add, name, type, opts}), do:
@@ -127,6 +128,7 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp ecto_to_db({:map, {t1, t2}}), do: "map<#{ecto_to_db(t1)}, #{ecto_to_db(t2)}>"
   defp ecto_to_db({:map, t}),        do: ecto_to_db({:map, {:varchar, t}})
   defp ecto_to_db({:array, t}),      do: "list<#{ecto_to_db(t)}>"
+  defp ecto_to_db({:list, t}),       do: "list<#{ecto_to_db(t)}>"
   defp ecto_to_db({:set, t}),        do: "set<#{ecto_to_db(t)}>"
   defp ecto_to_db({:tuple, type}) when is_atom(type), do: ecto_to_db({:tuple, {type}})
   defp ecto_to_db({:tuple, types}) when is_tuple(types) do
@@ -141,8 +143,8 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp column_definitions(table, columns), do:
     Enum.map_join(columns, ", ", &column_definition(table, &1))
 
-  defp with_definitions_any(%{options: opts} = any) do
-    with_definitions = case with_definitions(any) do
+  defp with_definitions_any(%{options: _opts} = any) do
+    case with_definitions(any) do
       nil -> ""
       w   -> "WITH #{w}"
     end
@@ -170,47 +172,41 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp with_val(val), do: val
 
   defp pk_definition(columns) do
-    pks =
-      for {_, name, _, opts} <- columns,
-          opts[:primary_key],
-          do: name
+    pks             = get_col_names(columns, :primary_key)
+    partition_keys  = get_col_names(columns, :partition_key)
+    clustering_cols = get_col_names(columns, :clustering_column)
 
-    partition_keys =
-      for {_, name, _, opts} <- columns,
-          opts[:partition_key],
-          do: name
-
-    clustering_cols =
-      for {_, name, _, opts} <- columns,
-          opts[:clustering_column],
-          do: name
-
-    if length(pks) > 0 && length(partition_keys ++ clustering_cols) > 0, do:
-      error! nil,
+    {partition_keys, clustering_cols} = case {pks, partition_keys, clustering_cols} do
+      {[], [], _} -> error! nil,
+        "Cassandra adapter requires any of :primary_key or :partition_key"
+      {[], partition_keys, clustering_cols} -> {partition_keys, clustering_cols}
+      {[head | tail], [], []} -> {[head], tail}
+      _ -> error! nil,
         """
         Cassandra adapter doesn't allow to mix :primary_key
         with :partition_key or :clustering_column
         """
-
-    if length(pks) > 0 do
-      [head | tail] = pks
-      {partition_keys, clustering_cols} = {[head], tail}
     end
 
-    if partition_keys == [], do:
-      error! nil,
-        "Cassandra adapter requires any of :primary_key or :partition_key"
+    "PRIMARY KEY (#{partition_part(partition_keys)}#{clustering_part(clustering_cols)})"
+  end
 
-    partition_part = case partition_keys do
+  defp partition_part(partition_keys) do
+    case partition_keys do
       [p] -> quote_name(p)
       _  -> "(" <> Enum.map_join(partition_keys, ", ", &quote_name/1) <> ")"
     end
+  end
 
-    clustering_part = case clustering_cols do
+  defp clustering_part(clustering_cols) do
+    case clustering_cols do
       [] -> ""
       _  -> ", " <> Enum.map_join(clustering_cols, ", ", &quote_name/1)
     end
-
-    "PRIMARY KEY (#{partition_part}#{clustering_part})"
   end
+
+  defp get_col_names(columns, type), do:
+    for {_, name, _, opts} <- columns,
+      opts[type],
+      do: name
 end

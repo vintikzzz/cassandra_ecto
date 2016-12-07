@@ -1,4 +1,8 @@
 defmodule Cassandra.Ecto.Connection do
+  @moduledoc """
+  Manages connection to Cassandra DB.
+  """
+
   use GenServer
   import Supervisor.Spec
   alias Cassandrex, as: C
@@ -7,11 +11,10 @@ defmodule Cassandra.Ecto.Connection do
   @conn_opts [:keyspace, :auth, :ssl, :protocol_version,
     :pool_max_size, :pool_min_size, :pool_cull_interval]
 
-
   @default_host "127.0.0.1"
   @default_port 9042
   @default_opts [timeout: 5000, consistency: :one,
-                 batch_mode: :logged, log: false]
+                 batch_mode: :logged, log: false, batched: false]
 
   def init({repo, opts}) do
     config = repo.__pool__
@@ -33,7 +36,7 @@ defmodule Cassandra.Ecto.Connection do
     conn_opts = []
     for opt <- @conn_opts do
       if Keyword.has_key?(config, opt) do
-        Keyword.put(conn_opts, opt, Keyword.get(config, opt))
+        conn_opts = Keyword.put(conn_opts, opt, Keyword.get(config, opt))
       end
     end
     conn_opts

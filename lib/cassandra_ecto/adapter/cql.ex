@@ -1,4 +1,8 @@
 defmodule Cassandra.Ecto.Adapter.CQL do
+  @moduledoc """
+  Generates CQL-queries for Cassandra DML statements.
+  """
+
   alias Ecto.Query
   alias Ecto.Query.{BooleanExpr, QueryExpr}
   import Cassandra.Ecto.Helper
@@ -12,32 +16,27 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     allow_filtering = allow_filtering(opts)
     assemble([select, from, where, order_by, limit, allow_filtering])
   end
+  def to_cql(:delete_all, query, _opts) do
+    from  = from(query)
+    where = where(query)
+    assemble(["DELETE", from, where])
+  end
+  def to_cql(:update_all, %{from: {from, _name}, prefix: prefix} = query, _opts) do
+    fields = update_fields(query)
+    where  = where(query)
+    assemble(["UPDATE", quote_table(prefix, from), "SET", fields, where])
+  end
   def to_cql(:insert, %{source: {prefix, source}}, fields, on_conflict, opts) do
     header = fields |> Keyword.keys
     values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
       "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
     assemble(["INSERT INTO", quote_table(prefix, source), values, on_conflict(on_conflict), using(opts)])
   end
-  def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts) do
-    header = fields |> Keyword.keys
-    values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
-      "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
+  def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts), do:
     assemble(["UPDATE", quote_table(prefix, source), using(opts), "SET", assigment(fields),
       "WHERE", filter(filters)])
-  end
-  def to_cql(:delete, %{source: {prefix, source}}, fields, opts) do
+  def to_cql(:delete, %{source: {prefix, source}}, fields, opts), do:
     assemble(["DELETE FROM", quote_table(prefix, source), using(opts), "WHERE", filter(fields)])
-  end
-  def to_cql(:delete_all, query, opts) do
-    from  = from(query)
-    where = where(query)
-    assemble(["DELETE", from, where])
-  end
-  def to_cql(:update_all, %{from: {from, _name}, prefix: prefix} = query, opts) do
-    fields = update_fields(query)
-    where  = where(query)
-    assemble(["UPDATE", quote_table(prefix, from), "SET", fields, where])
-  end
 
   defp update_fields(%Query{updates: updates} = query), do:
     for(%{expr: expr} <- updates,
@@ -69,7 +68,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
       "Cassandra adapter doesn't support :in_conflict queries and targets"
 
   defp using(opts) do
-    using_definitions = case using_definitions(opts) do
+    case using_definitions(opts) do
       "" -> ""
       w   -> "USING #{w}"
     end
@@ -122,7 +121,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp select_fields([], _query), do: "TRUE"
   defp select_fields(fields, query) do
     Enum.map_join(fields, ", ", fn
-      {key, value} ->
+      {_key, value} ->
         expr(value, query)
       value ->
         expr(value, query)
@@ -159,11 +158,11 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     paren_expr(expr, query)
   defp op_to_binary(expr, query), do: expr(expr, query)
 
-  defp expr({{:., _, [{:&, _, [idx]}, field]}, _, []}, _query) when is_atom(field), do:
+  defp expr({{:., _, [{:&, _, [_idx]}, field]}, _, []}, _query) when is_atom(field), do:
     quote_name(field)
-  defp expr({:&, _, [idx, nil, _counter]}, query), do:
+  defp expr({:&, _, [_idx, nil, _counter]}, query), do:
     error!(query, "Cassandra adapter requires a schema module when using selector")
-  defp expr({:&, _, [idx, fields, _counter]}, query), do:
+  defp expr({:&, _, [_idx, fields, _counter]}, _query), do:
     Enum.map_join(fields, ", ", &quote_name(&1))
   defp expr({:in, _, [_left, []]}, query), do:
     error! query,
@@ -172,7 +171,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     args = Enum.map_join right, ",", &expr(&1, query)
     expr(left, query) <> " IN (" <> args <> ")"
   end
-  defp expr({:in, _, [left, {:^, _, [ix, _]}]}, query), do:
+  defp expr({:in, _, [_left, {:^, _, [_ix, _]}]}, query), do:
     error! query,
       "Cassandra adapter does not support queries with array in :in clauses"
   defp expr({:in, _, [left, right]}, query), do:
@@ -186,9 +185,9 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp expr(false, _query), do: "FALSE"
   defp expr(literal, _query) when is_binary(literal), do:
     "'#{escape_string(literal)}'"
-  defp expr(literal, query) when is_integer(literal), do:
+  defp expr(literal, _query) when is_integer(literal), do:
     String.Chars.Integer.to_string(literal)
-  defp expr({:^, [], [ix]}, _query), do: "?"
+  defp expr({:^, [], [_ix]}, _query), do: "?"
   defp expr({fun, _, args}, query) when is_atom(fun) and is_list(args) do
     case handle_call(fun, length(args)) do
       {:binary_op, op} ->
@@ -213,5 +212,4 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp escape_string(value) when is_binary(value) do
     :binary.replace(value, "'", "''", [:global])
   end
-
 end

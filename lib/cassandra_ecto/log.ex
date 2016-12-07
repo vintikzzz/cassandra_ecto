@@ -1,4 +1,8 @@
 defmodule Cassandra.Ecto.Log do
+  @moduledoc """
+  Manages logging
+  """
+
   def log(repo, params, entry, opts) do
     %{connection_time: query_time, decode_time: decode_time,
       pool_time: queue_time, result: result, query: query} = entry

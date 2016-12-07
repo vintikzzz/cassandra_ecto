@@ -164,6 +164,40 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
     end
   end
 
+  defmodule CreateWithPrimaryAndPartitionKeys do
+    use Cassandra.Ecto.Migration
+
+    @table :create_table_with_primary_and_partition_keys
+
+    def up do
+      create table(@table, primary_key: false) do
+        add :id, :uuid, primary_key: true
+        add :id2, :uuid, partition_key: true
+      end
+    end
+
+    def down do
+      drop table(@table)
+    end
+  end
+
+  defmodule CreateWithWithoutPrimaryAndPartitionKeys do
+    use Cassandra.Ecto.Migration
+
+    @table :create_table_with_primary_and_partition_keys
+
+    def up do
+      create table(@table, primary_key: false) do
+        add :id, :uuid
+        add :id2, :uuid
+      end
+    end
+
+    def down do
+      drop table(@table)
+    end
+  end
+
   defmodule CreateWithStaticColumnMigration do
     use Cassandra.Ecto.Migration
 

@@ -12,7 +12,6 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
     use Schema
     alias Cassandra.Ecto.Spec.Support.Schemas.{Post, PersonalInfo}
     schema "users" do
-      @primary_key {:id, :binary_id, autogenerate: true}
       field      :name,  :string
       has_many   :posts, Post, foreign_key: :author_id
       embeds_one :personal_info, PersonalInfo
@@ -31,7 +30,6 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
     use Schema
     alias Cassandra.Ecto.Spec.Support.Schemas.{Comment, User}
     schema "posts" do
-      @primary_key {:id, :binary_id, autogenerate: true}
       field :title,    :string
       field :text,     :string
       field :public,   :boolean
@@ -46,7 +44,6 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
   defmodule PostStats do
     use Schema
     schema "post_stats" do
-      @primary_key {:id, :binary_id}
       field :visits,   :integer
     end
   end

@@ -1,4 +1,8 @@
 defmodule Cassandra.Ecto.Storage.CQL do
+  @moduledoc """
+  Generates CQL-queries for managing keyspaces.
+  """
+
   @default_replication_factor 1
   @default_durable_writes     true
   def to_cql(:up, opts) do
@@ -7,7 +11,7 @@ defmodule Cassandra.Ecto.Storage.CQL do
       replication_factor: @default_replication_factor
     })
     |> Keyword.put_new(:durable_writes, true)
-    {repl_class, repl_opts} = opts[:replication]
+    {repl_class, _repl_opts} = opts[:replication]
     """
     CREATE KEYSPACE #{opts[:keyspace]}
     WITH REPLICATION = {
