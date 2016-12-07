@@ -10,39 +10,39 @@ Documentation: http://hexdocs.pm/cassandra_ecto/
 
 ## Example
 
-    ```elixir
-    # In your config/config.exs file
-    config :my_app, Repo,
-      keyspace: "my_keyspace"
+```elixir
+# In your config/config.exs file
+config :my_app, Repo,
+  keyspace: "my_keyspace"
 
-    # In your application code
-    defmodule Repo do
-      use Ecto.Repo,
-        otp_app: :my_app,
-        adapter: Cassandra.Ecto
-    end
+# In your application code
+defmodule Repo do
+  use Ecto.Repo,
+    otp_app: :my_app,
+    adapter: Cassandra.Ecto
+end
 
-    defmodule Post do
-      use Ecto.Model
+defmodule Post do
+  use Ecto.Model
 
-      @primary_key {:id, :binary_id, autogenerate: true}
-      schema "posts" do
-        field :title,    :string
-        field :text,     :string
-        field :tags,     {:array, :string}
-        timestamps()
-      end
-    end
+  @primary_key {:id, :binary_id, autogenerate: true}
+  schema "posts" do
+    field :title,    :string
+    field :text,     :string
+    field :tags,     {:array, :string}
+    timestamps()
+  end
+end
 
-    defmodule Simple do
-      import Ecto.Query
+defmodule Simple do
+  import Ecto.Query
 
-      def sample_query do
-        query = from p in Post, where: "elixir" in p.tags
-        Repo.all(query, allow_filtering: true)
-      end
-    end
-    ```
+  def sample_query do
+    query = from p in Post, where: "elixir" in p.tags
+    Repo.all(query, allow_filtering: true)
+  end
+end
+```
 
 ## Supported Cassandra version
 
