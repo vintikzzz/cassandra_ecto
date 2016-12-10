@@ -25,9 +25,9 @@ before_install:
 install:
   - MIX_ENV=test mix do local.hex --force, local.rebar --force, deps.get
 script:
-  - MIX_ENV=test mix espec
+  - MIX_ENV=test mix do coveralls.travis
 after_script:
-  - MIX_ENV=test mix do coveralls.travis, inch.report
+  - MIX_ENV=test mix do inch.report
 notifications:
   recipients:
     - pavel@tatarsky.ru

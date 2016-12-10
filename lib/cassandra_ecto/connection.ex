@@ -21,7 +21,6 @@ defmodule Cassandra.Ecto.Connection do
     name = pool_name(repo, opts)
     nodes = Keyword.get(config, :nodes, [{@default_host, @default_port}])
     conn_opts = config
-    |> prepare_conn_opts
     |> Keyword.put_new(:keyspace, Mix.env)
     conn_opts = case opts[:use_keyspace] do
       false -> Keyword.delete(conn_opts, :keyspace)
@@ -30,16 +29,6 @@ defmodule Cassandra.Ecto.Connection do
     C.add_nodes(name, nodes, conn_opts)
     {:ok, c} = C.get_client(name)
     {:ok, c}
-  end
-
-  defp prepare_conn_opts(config) do
-    conn_opts = []
-    for opt <- @conn_opts do
-      if Keyword.has_key?(config, opt) do
-        conn_opts = Keyword.put(conn_opts, opt, Keyword.get(config, opt))
-      end
-    end
-    conn_opts
   end
 
   defp pool_name(repo, opts), do:
@@ -67,14 +56,14 @@ defmodule Cassandra.Ecto.Connection do
   end
 
   def query(repo, statement, values \\ [], opts \\ []) do
-    opts = prepare_opts(repo, opts)
+    opts = prepare_opts(opts)
     name = pool_name(repo, opts)
     fn -> GenServer.call(name, {:query, statement, values, opts}, opts[:timeout]) end
     |> with_log(repo, statement, values, opts)
   end
 
   def batch(repo, queries, opts \\ []) do
-    opts = prepare_opts(repo, opts)
+    opts = prepare_opts(opts)
     name = pool_name(repo, opts)
     fn -> GenServer.call(name, {:batch, queries, opts}, opts[:timeout]) end
     |> with_log(repo, queries, opts)
@@ -82,7 +71,7 @@ defmodule Cassandra.Ecto.Connection do
 
   def child_spec(repo, opts), do: worker(__MODULE__, [repo, opts])
 
-  defp prepare_opts(repo, opts), do:
+  defp prepare_opts(opts), do:
     Keyword.merge(@default_opts, opts)
 
   defp with_log(res, repo, statement, values, opts) do
