@@ -7,14 +7,21 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   alias Ecto.Query.{BooleanExpr, QueryExpr}
   import Cassandra.Ecto.Helper
 
+  def to_cql(command, query, opts \\ [])
   def to_cql(:all, query, opts) do
     from     = from(query)
     select   = select(query)
     where    = where(query)
     order_by = order_by(query)
     limit    = limit(query)
+    check_support!(:offset, :offset, query)
+    check_support!(:group_by, :group_bys, query)
+    check_support!(:having, :havings, query)
+    check_support!(:join, :joins, query)
+    check_support!(:lock, :lock, query)
     allow_filtering = allow_filtering(opts)
-    assemble([select, from, where, order_by, limit, allow_filtering])
+    per_partition_limit = per_partition_limit(opts)
+    assemble([select, from, where, order_by, limit, per_partition_limit, allow_filtering])
   end
   def to_cql(:delete_all, query, _opts) do
     from  = from(query)
@@ -95,14 +102,27 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     |> Enum.map_join(delimiter, &"#{quote_name(&1)} = ?")
 
   defp allow_filtering([allow_filtering: true]), do: "ALLOW FILTERING"
-  defp allow_filtering(_), do: []
+  defp allow_filtering(_), do: ""
+
+  defp per_partition_limit([per_partition_limit: num]) when is_integer(num),
+    do: "PER PARTITION LIMIT " <> Integer.to_string(num)
+  defp per_partition_limit(_), do: ""
 
   defp from(%{from: {from, _name}, prefix: prefix}), do: from(prefix, from)
   defp from(%{from: {from, _name}}), do: from(nil, from)
   defp from(prefix, from), do: "FROM #{quote_table(prefix, from)}"
 
   defp select(%Query{select: %{fields: fields}} = query), do:
-    "SELECT " <> select_fields(fields, query)
+    assemble(["SELECT", distinct(query), select_fields(fields, query)])
+  defp select(%Query{select: nil}), do: "SELECT *"
+
+  defp distinct(%Query{distinct: distinct} = query), do: distinct(distinct, query)
+  defp distinct(nil, _), do: ""
+  defp distinct(%QueryExpr{expr: []}, _), do: ""
+  defp distinct(%QueryExpr{expr: true}, _), do: "DISTINCT"
+  defp distinct(%QueryExpr{expr: false}, _), do: ""
+  defp distinct(_, query), do: error! query,
+    "Cassandra adapter supports only distinct: true"
 
   defp where(%Query{wheres: wheres} = query), do:
     boolean("WHERE", wheres, query)
@@ -132,12 +152,15 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp boolean(name, [%{expr: expr} | query_exprs], query) do
     name <> " " <>
       Enum.reduce(query_exprs, paren_expr(expr, query), fn
-        %BooleanExpr{expr: expr, op: :and}, acc ->
-          acc <> " AND " <> paren_expr(expr, query)
-        %BooleanExpr{expr: expr, op: :or}, acc ->
-          acc <> " OR " <> paren_expr(expr, query)
+        %BooleanExpr{expr: expr, op: op}, {op, acc} ->
+          {op, acc <> operator_to_boolean(op) <> paren_expr(expr, query)}
+        %BooleanExpr{expr: expr, op: op}, {_, acc} ->
+          {op, "(" <> acc <> ")" <> operator_to_boolean(op) <> paren_expr(expr, query)}
       end)
   end
+
+  defp operator_to_boolean(:and), do: " AND "
+  defp operator_to_boolean(:or), do: " OR "
 
   defp paren_expr(expr, query), do:
     "(" <> expr(expr, query) <> ")"
@@ -168,7 +191,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     error! query,
       "Cassandra adapter does not support queries with empty :in clauses"
   defp expr({:in, _, [left, right]}, query) when is_list(right) do
-    args = Enum.map_join right, ",", &expr(&1, query)
+    args = Enum.map_join right, ", ", &expr(&1, query)
     expr(left, query) <> " IN (" <> args <> ")"
   end
   defp expr({:in, _, [_left, {:^, _, [_ix, _]}]}, query), do:
@@ -180,6 +203,12 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     "#{expr(arg, query)} IS NULL"
   defp expr({:not, _, [expr]}, query), do:
     "NOT (" <> expr(expr, query) <> ")"
+  defp expr({:fragment, _, parts}, query) do
+    Enum.map_join(parts, "", fn
+      {:raw, part}  -> part
+      {:expr, expr} -> expr(expr, query)
+    end)
+  end
   defp expr(nil, _query),   do: "NULL"
   defp expr(true, _query),  do: "TRUE"
   defp expr(false, _query), do: "FALSE"
@@ -211,5 +240,14 @@ defmodule Cassandra.Ecto.Adapter.CQL do
 
   defp escape_string(value) when is_binary(value) do
     :binary.replace(value, "'", "''", [:global])
+  end
+
+  defp check_support!(func, field, query) do
+    case Map.get(query, field, nil) do
+      nil -> :ok
+      [] -> :ok
+      _ -> error! query,
+        "Cassandra adapter doesn't support :#{func} in query"
+    end
   end
 end
