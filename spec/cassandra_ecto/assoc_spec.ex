@@ -1,11 +1,10 @@
 defmodule CassandraEctoAssocSpec do
   use ESpec, async: false
-  alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Schemas.{Post, User}
   import Cassandra.Ecto.Spec.Support.Factories
   import Ecto.Query
   import Ecto
-  describe "Associations" do
+  describe "Associations", context_tag: :db do
     before do
       case Ecto.Migrator.up(TestRepo, 0, Cassandra.Ecto.Spec.Support.Migrations.PostsMigration, log: false) do
         :already_up -> :ok

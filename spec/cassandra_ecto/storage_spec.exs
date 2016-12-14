@@ -1,6 +1,5 @@
 defmodule CassandraEctoStorageSpec do
   alias Cassandra.Ecto, as: C
-  alias Ecto.Integration.TestRepo
   use ESpec, async: false
   describe "Cassandra.Ecto" do
     describe "Storage behaviour" do

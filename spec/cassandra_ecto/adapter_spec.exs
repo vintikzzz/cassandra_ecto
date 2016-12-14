@@ -1,11 +1,10 @@
 defmodule CassandraEctoAdapterSpec do
   import Ecto.Query
   use ESpec, async: false
-  alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Schemas.{Post, PostStats}
   import Cassandra.Ecto.Spec.Support.Factories
 
-  describe "Cassandra.Ecto" do
+  describe "Cassandra.Ecto", context_tag: :db do
     describe "Adapter behaviour" do
       before do
         case Ecto.Migrator.up(TestRepo, 0, Cassandra.Ecto.Spec.Support.Migrations.PostsMigration, log: false) do
@@ -113,12 +112,29 @@ defmodule CassandraEctoAdapterSpec do
           expect(fn -> TestRepo.insert!(post) end) |> to(raise_exception(ArgumentError))
         end
         it "upserts data with on_conflict: :nothing" do
-          post = factory(:post)
-          post = TestRepo.insert!(post)
-          post = factory(:updated_post, post)
-          post = TestRepo.insert!(post, on_conflict: :nothing)
+          init_post = factory(:post)
+          init_post = TestRepo.insert!(init_post)
+          updated_post = factory(:updated_post, init_post)
+          updated_post = TestRepo.insert!(updated_post, on_conflict: :nothing, if: :not_exists)
           fetched_post = TestRepo.one(Post)
-          expect(fetched_post) |> to(eq post)
+          expect(updated_post) |> to(eq fetched_post)
+        end
+        it "returns existing record with on_conflict: :nothing and if: :not_exists" do
+          init_post = factory(:post)
+          init_post = TestRepo.insert!(init_post)
+          updated_post = factory(:updated_post, init_post)
+          updated_post = TestRepo.insert!(updated_post, on_conflict: :nothing, if: :not_exists)
+          fetched_post = TestRepo.one(Post)
+          expect(fetched_post) |> to(eq init_post)
+          expect(updated_post) |> to(eq init_post)
+        end
+        it "doesn't raise error and upserts data with repo option upsert: true" do
+          init_post = factory(:post)
+          init_post = TestUpsertRepo.insert!(init_post)
+          updated_post = factory(:updated_post, init_post)
+          updated_post = TestUpsertRepo.insert!(updated_post)
+          fetched_post = TestUpsertRepo.one(Post)
+          expect(updated_post) |> to(eq fetched_post)
         end
       end
       describe "update/6" do
@@ -130,12 +146,35 @@ defmodule CassandraEctoAdapterSpec do
           fetched_post = TestRepo.one(Post)
           expect(fetched_post) |> to(eq post)
         end
-        it "upserts data always" do
+        it "doesn't upsert data by default" do
           post = %Post{id: Ecto.UUID.bingenerate()}
           |> Ecto.Changeset.cast(%{title: "test", text: "upserted text"}, [:title, :text])
           |> TestRepo.update!
           fetched_post = TestRepo.one(Post)
+          expect(fetched_post) |> to_not(eq post)
+        end
+        it "upserts data with repo option upsert: true" do
+          post = %Post{id: Ecto.UUID.bingenerate()}
+          |> Ecto.Changeset.cast(%{title: "test", text: "upserted text"}, [:title, :text])
+          |> TestUpsertRepo.update!
+          fetched_post = TestUpsertRepo.one(Post)
           expect(fetched_post) |> to(eq post)
+        end
+        it "upserts data with if: nil" do
+          post = %Post{id: Ecto.UUID.bingenerate()}
+          |> Ecto.Changeset.cast(%{title: "test", text: "upserted text"}, [:title, :text])
+          |> TestRepo.update!(if: nil)
+          fetched_post = TestRepo.one(Post)
+          expect(fetched_post) |> to(eq post)
+        end
+        it "doesnt't update data with failed if condition" do
+          post = factory(:post)
+          post = TestRepo.insert!(post)
+          updated_post = Ecto.Changeset.change post, text: "updated text", title: "updated title"
+          updated_post = TestRepo.update!(updated_post)
+          updated_post2 = Ecto.Changeset.change updated_post, text: "another updated text", title: "another updated title"
+          updated_post2 = TestRepo.update!(updated_post2, if: [title: "test"])
+          expect(updated_post2.title) |> to(eq "updated title")
         end
       end
       describe "delete/4" do

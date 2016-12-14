@@ -1,11 +1,10 @@
 defmodule CassandraEctoStreamSpec do
   import Ecto.Query
   use ESpec, async: false
-  alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Schemas.Post
   import Cassandra.Ecto.Spec.Support.Factories
 
-  describe "Cassandra.Ecto" do
+  describe "Cassandra.Ecto", context_tag: :db do
     before do
       case Ecto.Migrator.up(TestRepo, 0, Cassandra.Ecto.Spec.Support.Migrations.PostsMigration, log: false) do
         :already_up -> :ok

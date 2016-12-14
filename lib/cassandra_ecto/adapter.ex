@@ -23,21 +23,44 @@ defmodule Cassandra.Ecto.Adapter do
   >
   >     Repo.all((from p in Post, where: "abra" in p.tags), allow_filtering: true)
 
-  ## Upserts, updates and conditional inserts
+  ## Upserts and Lightweight transactions
 
-  By default in Cassandra `insert` and `update` both are equivalent to `upsert`.
-  But `Ecto` by default expects that if record already exists it will raise error.
-  So when `Cassandra.Ecto` executes `insert` it makes it conditional with `IF NOT EXISTS`
-  to emulate `Ecto` default behaviour. To perform `upsert` with `insert` just
-  use option `on_conflict: :nothing`.
+  By default in Apache Cassandra `insert` and `update` both are equivalent to `upsert`.
+  But `Ecto` by default expects that if record already exists it will raise error
+  on insert and it should not create new record on update.
+  So when `Cassandra.Ecto` executes `insert` it makes it conditional with
+  `IF NOT EXISTS` and when executes `update` - `IF EXISTS`.
+
+  To perform `upsert` with `insert` just use option `on_conflict: :nothing`.
+  To perform `upsert` with `update` just use option `if: nil`.
+
+  If you wish to perform upserts by default you need to specify `upsert: true`
+  option in you repo. It might be very usefull for CQL version prior 3.2.
+
+  By the way, you can set `:if` option for your `update` and `insert` queries.
+  Here is available types for `:if` option:
+
+      :exists
+      :not_exists
+      [field1: value1, field2: value2, ...]
+
+  > HINT: please take a look at last option with keyword list. You can use it
+  > for optimistic locking like so:
+  >
+  >     Repo.update!(post, if: [version: 2])
 
   ### Comparision table
 
-      Ecto function       on_conflict     Cassandra
-      -------------       -----------     ---------
-      insert/2            :raise          insert with 'IF NOT EXISTS'
-      insert/2            :nothing        insert/upsert
-      update/2            (no option)     update/upsert
+      Ecto function       :on_conflict     :if           Cassandra
+      -------------       ------------     --            ---------
+      insert/2            :raise           (no option)   insert with 'IF NOT EXISTS'
+      insert/2            :nothing         (no option)   insert/upsert
+      insert/2            :nothing         :not_exists   insert with 'IF NOT EXISTS'
+      update/2            (no option)      (no option)   updates with 'IF EXISTS'
+      update/2            (no option)      nil           insert/upsert
+      update/2            (no option)      :exists       updates with 'IF EXISTS'
+
+  > NOTE: this comparision table works only for repo without `upsert: true` option.
 
   ## Batched queries
 
@@ -144,17 +167,15 @@ defmodule Cassandra.Ecto.Adapter do
   """
   def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
-  def insert(repo, meta, fields, {action, _, _} = on_conflict, [], opts) do
+  def insert(repo, meta, fields, on_conflict, [], opts) do
+    on_conflict = case Keyword.get(repo.__pool__, :upsert, false) do
+       true  -> put_elem(on_conflict, 0, :nothing)
+       false -> on_conflict
+    end
     cql = to_cql(:insert, meta, fields, on_conflict, opts)
     {:ok, res} = Connection.query(repo, cql, fields, opts)
-    row = res.rows |> List.first
-    case {row, action} do
-      {nil,            :nothing} -> {:ok, []}
-      {[true  | []],   :raise}   -> {:ok, []}
-      {[false | data], :raise}   -> error! nil,
-        "Unable to insert #{inspect(fields)}. Record #{inspect(Enum.zip(Keyword.keys(fields), data))} " <>
-        "already exists. Use :insert_or_update for default upsert behaviour."
-    end
+    action = elem(on_conflict, 0)
+    prepare_result(res, action, fields)
   end
 
   @doc """
@@ -180,9 +201,20 @@ defmodule Cassandra.Ecto.Adapter do
   def update(_repo, meta, _fields, _filters, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def update(repo, meta, fields, filters, [], opts) do
+    opts = case Keyword.get(repo.__pool__, :upsert, false)  do
+      true  -> opts
+      false -> Keyword.put_new(opts, :if, :exists)
+    end
+
+    if_fields = case Keyword.get(opts, :if, nil) do
+      wheres when is_list(wheres) -> wheres
+      _ -> []
+    end
+
     cql = to_cql(:update, meta, fields, filters, opts)
-    {:ok, _res} = Connection.query(repo, cql, fields ++ filters, opts)
-    {:ok, []}
+    {:ok, res} = Connection.query(repo, cql, fields ++ filters ++ if_fields, opts)
+
+    prepare_result(res, :nothing, fields)
   end
 
   defp read_write_error!(meta, returning), do:
@@ -238,4 +270,18 @@ defmodule Cassandra.Ecto.Adapter do
   See `c:Ecto.Adapter.prepare/2`
   """
   def prepare(func, query), do: {:nocache, {func, query}}
+
+  defp prepare_result(res, action, fields) do
+    row  = res.rows |> List.first
+    cols = res.columns
+    case {row, cols, action} do
+      {nil,            _cols,      :nothing} -> {:ok, []}
+      {[true  | []],   _cols,      _}        -> {:ok, []}
+      {[false | row],  [_ | cols], :nothing} -> {:ok, Enum.zip(cols, row)}
+      {[false | data], _cols,      :raise}   -> error! nil,
+        "Unable to insert #{inspect(fields)}. Record #{inspect(Enum.zip(Keyword.keys(fields), data))} " <>
+        "already exists. Use :insert_or_update for default upsert behaviour."
+    end
+  end
+
 end

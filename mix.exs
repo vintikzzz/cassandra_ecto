@@ -1,7 +1,7 @@
 defmodule CassandraEcto.Mixfile do
   use Mix.Project
 
-  @version "0.1.1"
+  @version "0.2.0"
 
   def project do
     [app: :cassandra_ecto,
@@ -55,7 +55,7 @@ defmodule CassandraEcto.Mixfile do
 
   defp description do
     """
-    Ecto integration with Cassandra.
+    Ecto integration for Apache Cassandra.
     """
   end
 

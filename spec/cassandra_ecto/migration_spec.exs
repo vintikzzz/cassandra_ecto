@@ -3,7 +3,6 @@ defmodule CassandraEctoMigrationSpec do
   import Ecto.Query
   use ESpec, async: false
   alias Cassandra.Ecto, as: C
-  alias Ecto.Integration.TestRepo
   alias Cassandra.Ecto.Spec.Support.Migrations.{CreateMigration,
     AddColumnMigration, DropColumnMigration, ChangeColumnMigration,
     RenameColumnMigration, RenameTableMigration, ConstraintMigration,
@@ -14,7 +13,7 @@ defmodule CassandraEctoMigrationSpec do
     AlterTypeMigration, CreateCounterMigration, CreateWithPrimaryAndPartitionKeys,
     CreateWithWithoutPrimaryAndPartitionKeys
   }
-  describe "Cassandra.Ecto" do
+  describe "Cassandra.Ecto", context_tag: :db do
     describe "Migration behaviour" do
       before do
         :ok = C.storage_up(TestRepo.config)

@@ -118,17 +118,87 @@ defmodule CassandroEctoAdapterCQLSpec do
           end
         end
         context "with :allow_filtering" do
-          it " generates cql"  do
+          it "generates cql"  do
             query = (from p in "posts", where: p.id == 1) |> normalize
             expect(to_cql(:all, query, allow_filtering: true))
             |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" = 1) ALLOW FILTERING")
           end
         end
         context "with :per_partition_limit" do
-          it " generates cql"  do
+          it "generates cql"  do
             query = (from p in "posts") |> normalize
             expect(to_cql(:all, query, per_partition_limit: 2))
             |> to(eq "SELECT * FROM \"posts\" PER PARTITION LIMIT 2")
+          end
+        end
+      end
+      context "with :insert" do
+        context "with on_conflict :raise" do
+          it "generates cql with \"IF NOT EXISTS\"" do
+            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, []))
+            |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS")
+          end
+        end
+        context "with on_conflict :nothing" do
+          it "generates cql for Cassandra upsert" do
+            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
+            |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?)")
+          end
+        end
+        context "with on_conflict :nothing and if: :not_exists" do
+          it "generates cql with \"IF NOT EXISTS\"" do
+            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, if: :not_exists))
+            |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS")
+          end
+        end
+        context "with :prefix" do
+          it "generates cql with Cassandra keyspace" do
+            expect(to_cql(:insert, %{source: {"test", "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
+            |> to(eq "INSERT INTO \"test\".\"posts\" (\"title\", \"text\") VALUES (?, ?)")
+          end
+        end
+        context "with :timestamp and :ttl" do
+          it "generates cql" do
+            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, ttl: 86400, timestamp: 123456789))
+            |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS USING TTL 86400 AND TIMESTAMP 123456789")
+          end
+        end
+      end
+      context "with :update" do
+        context "without :prefix" do
+          it "generates cql" do
+            expect(to_cql(:update, %{source: {nil, "posts"}}, [title: "a", text: "b"], [id: 1], []))
+            |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ?")
+          end
+        end
+        context "with :prefix" do
+          it "generates cql with Cassandra keyspace" do
+            expect(to_cql(:update, %{source: {"test", "posts"}}, [title: "a", text: "b"], [id: 1], []))
+            |> to(eq "UPDATE \"test\".\"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ?")
+          end
+        end
+        context "with multiple filters" do
+          it "generates cql" do
+            expect(to_cql(:update, %{source: {nil, "posts"}}, [title: "a", text: "b"], [id: 1, title: "c"], []))
+            |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ? AND \"title\" = ?")
+          end
+        end
+        context "with if: :exists" do
+          it "generates cql with \"IF EXISTS\"" do
+            expect(to_cql(:update, %{source: {nil, "posts"}}, [title: "a", text: "b"], [id: 1, title: "c"], if: :exists))
+            |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ? AND \"title\" = ? IF EXISTS")
+          end
+        end
+        context "with if: :not_exists" do
+          it "generates cql with \"IF NOT EXISTS\"" do
+            expect(to_cql(:update, %{source: {nil, "posts"}}, [title: "a", text: "b"], [id: 1, title: "c"], if: :not_exists))
+            |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ? AND \"title\" = ? IF NOT EXISTS")
+          end
+        end
+        context "with conditions in :if" do
+          it "generates cql" do
+            expect(to_cql(:update, %{source: {nil, "posts"}}, [title: "a", text: "b"], [id: 1, title: "c"], if: [title: "c", text: "d"]))
+            |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ? AND \"title\" = ? IF \"title\" = ? AND \"text\" = ?")
           end
         end
       end

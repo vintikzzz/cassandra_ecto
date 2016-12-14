@@ -4,7 +4,7 @@
 [![Inline docs](http://inch-ci.org/github/vintikzzz/cassandra_ecto.svg?branch=master&style=flat)](http://inch-ci.org/github/vintikzzz/cassandra_ecto)
 [![Ebert](https://ebertapp.io/github/vintikzzz/cassandra_ecto.svg)](https://ebertapp.io/github/vintikzzz/cassandra_ecto)
 
-Ecto integration with Cassandra.
+Ecto integration for Apache Cassandra.
 
 Documentation: http://hexdocs.pm/cassandra_ecto/
 

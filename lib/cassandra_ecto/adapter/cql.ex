@@ -35,13 +35,13 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   end
   def to_cql(:insert, %{source: {prefix, source}}, fields, on_conflict, opts) do
     header = fields |> Keyword.keys
-    values = "(" <> Enum.map_join(header, ",", &quote_name/1) <> ") " <>
-      "VALUES " <> "(" <> Enum.map_join(header, ",", fn _arg -> "?" end) <> ")"
-    assemble(["INSERT INTO", quote_table(prefix, source), values, on_conflict(on_conflict), using(opts)])
+    values = "(" <> Enum.map_join(header, ", ", &quote_name/1) <> ") " <>
+      "VALUES " <> "(" <> Enum.map_join(header, ", ", fn _arg -> "?" end) <> ")"
+    assemble(["INSERT INTO", quote_table(prefix, source), values, on_conflict(on_conflict, opts), using(opts)])
   end
   def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts), do:
     assemble(["UPDATE", quote_table(prefix, source), using(opts), "SET", assigment(fields),
-      "WHERE", filter(filters)])
+      "WHERE", filter(filters), if_op(opts)])
   def to_cql(:delete, %{source: {prefix, source}}, fields, opts), do:
     assemble(["DELETE FROM", quote_table(prefix, source), using(opts), "WHERE", filter(fields)])
 
@@ -68,11 +68,23 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp update_op(command, _key, _value, query), do:
     error!(query, "Cassandra adapter doesn't support #{inspect command} update operation")
 
-  defp on_conflict({:raise, [], []}), do: "IF NOT EXISTS"
-  defp on_conflict({:nothing, [], []}), do: []
-  defp on_conflict({_, _, _}), do:
+  defp on_conflict({:raise, [], []}, opts), do: if_op(Keyword.put_new(opts, :if, :not_exists))
+  defp on_conflict({:nothing, [], []}, opts), do: if_op(opts)
+  defp on_conflict({_, _, _}, _opts), do:
     error! nil,
       "Cassandra adapter doesn't support :in_conflict queries and targets"
+
+  defp if_op(opts) when is_list(opts) do
+    case Keyword.get(opts, :if) do
+      :not_exists -> if_op("NOT EXISTS")
+      :exists     -> if_op("EXISTS")
+      nil         -> ""
+      wheres when is_list(wheres) ->
+        Enum.map_join(wheres, " AND ", fn {k, v} -> quote_name(k) <> " = ?" end)
+        |> if_op
+    end
+  end
+  defp if_op(value) when is_binary(value), do: "IF " <> value
 
   defp using(opts) do
     case using_definitions(opts) do

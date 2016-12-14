@@ -1,6 +1,6 @@
 defmodule Cassandra.Ecto do
   @moduledoc """
-  Ecto integration with Cassandra.
+  Ecto integration for Apache Cassandra.
 
   Cassandra adapter implements 3 behaviours:
 

@@ -1,25 +1,30 @@
-Code.require_file "../deps/ecto/integration_test/support/repo.exs", __DIR__
 Code.require_file "support/migrations.exs", __DIR__
 Code.require_file "support/schemas.exs", __DIR__
 Code.require_file "support/factories.exs", __DIR__
 
-alias Ecto.Integration.TestRepo
-
 Application.put_env(:ecto, TestRepo, adapter: Cassandra.Ecto)
+Application.put_env(:ecto, TestUpsertRepo, adapter: Cassandra.Ecto, upsert: true)
 
-defmodule Ecto.Integration.TestRepo do
-  use Ecto.Integration.Repo, otp_app: :ecto
-end
+defmodule TestRepo, do:
+  use Ecto.Repo, otp_app: :ecto
+
+defmodule TestUpsertRepo, do:
+  use Ecto.Repo, otp_app: :ecto
 
 ESpec.configure fn(config) ->
-  config.before fn(_tags) ->
-    :ok = Cassandra.Ecto.storage_up(TestRepo.config)
-  end
-  config.finally fn(_shared) ->
-    :ok = Cassandra.Ecto.storage_down(TestRepo.config)
-  end
+  config.before fn
+    %{context_tag: :db} ->
+      Cassandra.Ecto.storage_up(TestRepo.config)
+    _ -> :ok
+    end
+  config.finally fn
+    %{context_tag: :db} ->
+      Cassandra.Ecto.storage_down(TestRepo.config)
+    _ -> :ok
+    end
 end
 
 :ok = Cassandra.Ecto.storage_up(TestRepo.config)
 
 {:ok, _pid} = TestRepo.start_link
+{:ok, _pid} = TestUpsertRepo.start_link
