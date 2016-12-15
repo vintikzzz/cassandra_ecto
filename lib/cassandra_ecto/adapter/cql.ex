@@ -80,7 +80,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
       :exists     -> if_op("EXISTS")
       nil         -> ""
       wheres when is_list(wheres) ->
-        Enum.map_join(wheres, " AND ", fn {k, v} -> quote_name(k) <> " = ?" end)
+        Enum.map_join(wheres, " AND ", fn {k, _v} -> quote_name(k) <> " = ?" end)
         |> if_op
     end
   end

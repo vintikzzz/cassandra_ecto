@@ -8,6 +8,13 @@ Ecto integration for Apache Cassandra.
 
 Documentation: http://hexdocs.pm/cassandra_ecto/
 
+## Features
+
+* Migrations (with UDT support)
+* Lightweight transactions
+* Batching (only for `insert_all` queries)
+* Streaming
+
 ## Example
 
 ```elixir
@@ -49,8 +56,6 @@ end
 Tested against 3.7+.
 
 ## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
 
   1. Add `cassandra_ecto` and `cqerl` to your list of dependencies in `mix.exs`:
 
