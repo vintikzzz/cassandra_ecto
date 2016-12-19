@@ -62,7 +62,7 @@ Tested against 3.7+.
     ```elixir
     def deps do
       [{:cqerl, github: "matehat/cqerl", tag: "v1.0.2", only: :test},
-      {:cassandra_ecto, "~> 0.1.0"}]
+      {:cassandra_ecto, "~> 0.2.1"}]
     end
     ```
 

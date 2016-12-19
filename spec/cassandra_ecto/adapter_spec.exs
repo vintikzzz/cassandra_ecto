@@ -72,7 +72,7 @@ defmodule CassandraEctoAdapterSpec do
           it "increments counters with :inc" do
             post = factory(:post)
             post = TestRepo.insert!(post)
-            TestRepo.update_all((from p in PostStats, where: p.id == ^post.id), inc: [visits: 5])
+            TestRepo.update_all((from p in PostStats, where: p.id == ^post.id), [inc: [visits: 5]], if: nil)
             stats = TestRepo.one(from p in PostStats, where: p.id == ^post.id)
             expect(stats.visits) |> to(eq 5)
           end

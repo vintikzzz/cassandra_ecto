@@ -143,11 +143,13 @@ defmodule Cassandra.Ecto.Adapter do
   See `c:Ecto.Adapter.execute/6`
   """
   def execute(repo, %{fields: fields}, {_cache, {func, query}}, params, process, opts) do
+    opts = prepare_opts(func, repo, opts)
     cql = to_cql(func, query, opts)
     names = get_names(query)
-    params = Enum.zip(names, params)
+    params = Enum.zip(names, params) ++ if_fields(opts)
     case Connection.query(repo, cql, params, opts) do
-      {:ok, %{rows: rows, num_rows: num}} -> {num, rows |> Enum.map(&process_row(&1, process, fields))}
+      {:ok, %{rows: rows, num_rows: num, command: :select}} -> {num, rows |> Enum.map(&process_row(&1, process, fields))}
+      {:ok, %{num_rows: num}} -> {num, []}
       {:error, err} -> raise err
     end
   end
@@ -168,11 +170,9 @@ defmodule Cassandra.Ecto.Adapter do
   def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def insert(repo, meta, fields, on_conflict, [], opts) do
-    on_conflict = case Keyword.get(repo.__pool__, :upsert, false) do
-       true  -> put_elem(on_conflict, 0, :nothing)
-       false -> on_conflict
-    end
+    on_conflict = prepare_on_conflict(repo, on_conflict)
     cql = to_cql(:insert, meta, fields, on_conflict, opts)
+    fields = fields ++ if_fields(opts)
     {:ok, res} = Connection.query(repo, cql, fields, opts)
     action = elem(on_conflict, 0)
     prepare_result(res, action, fields)
@@ -184,6 +184,7 @@ defmodule Cassandra.Ecto.Adapter do
   def insert_all(_repo, meta, _header, _rows, _on_conflict, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def insert_all(repo, meta, _header, rows, on_conflict, [], opts) do
+    on_conflict = prepare_on_conflict(repo, on_conflict)
     queries = rows
     |> Enum.map(fn
       row -> {to_cql(:insert, meta, row, on_conflict, opts), row}
@@ -201,19 +202,10 @@ defmodule Cassandra.Ecto.Adapter do
   def update(_repo, meta, _fields, _filters, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def update(repo, meta, fields, filters, [], opts) do
-    opts = case Keyword.get(repo.__pool__, :upsert, false)  do
-      true  -> opts
-      false -> Keyword.put_new(opts, :if, :exists)
-    end
-
-    if_fields = case Keyword.get(opts, :if, nil) do
-      wheres when is_list(wheres) -> wheres
-      _ -> []
-    end
-
+    opts = prepare_opts(:update, repo, opts)
     cql = to_cql(:update, meta, fields, filters, opts)
-    {:ok, res} = Connection.query(repo, cql, fields ++ filters ++ if_fields, opts)
-
+    fields = fields ++ filters ++ if_fields(opts)
+    {:ok, res} = Connection.query(repo, cql, fields, opts)
     prepare_result(res, :nothing, fields)
   end
 
@@ -284,4 +276,25 @@ defmodule Cassandra.Ecto.Adapter do
     end
   end
 
+  defp prepare_on_conflict(repo, on_conflict) do
+    case Keyword.get(repo.__pool__, :upsert, false) do
+       true  -> put_elem(on_conflict, 0, :nothing)
+       false -> on_conflict
+    end
+  end
+
+  defp if_fields(opts) do
+    case Keyword.get(opts, :if, nil) do
+      wheres when is_list(wheres) -> wheres
+      _ -> []
+    end
+  end
+
+  defp prepare_opts(func, repo, opts) when func in [:update, :update_all] do
+    case Keyword.get(repo.__pool__, :upsert, false)  do
+      true  -> opts
+      false -> Keyword.put_new(opts, :if, :exists)
+    end
+  end
+  defp prepare_opts(_, _, opts), do: opts
 end

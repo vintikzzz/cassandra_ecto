@@ -201,6 +201,44 @@ defmodule CassandroEctoAdapterCQLSpec do
             |> to(eq "UPDATE \"posts\" SET \"title\" = ?, \"text\" = ? WHERE \"id\" = ? AND \"title\" = ? IF \"title\" = ? AND \"text\" = ?")
           end
         end
+        context "with :update_all" do
+          context "with :inc" do
+            it "generates cql" do
+              query = (from p in "posts", where: p.id == 1, update: [inc: [visits: 5]]) |> normalize(:update_all)
+              expect(to_cql(:update_all, query))
+              |> to(eq "UPDATE \"posts\" SET \"visits\" = \"visits\" + 5 WHERE (\"id\" = 1)")
+            end
+          end
+          context "with :set" do
+            it "generates cql" do
+              query = (from p in "posts", where: p.id == 1, update: [set: [title: "a", text: "b"]]) |> normalize(:update_all)
+              expect(to_cql(:update_all, query))
+              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE (\"id\" = 1)")
+            end
+          end
+          # context "with :push" do
+          #   it "generates cql", focus: true do
+          #     id = Ecto.UUID.bingenerate()
+          #     query = (from p in Post, where: p.id == ^id, update: [push: [tags: "a"]]) |> normalize(:update_all)
+          #     expect(to_cql(:update_all, query))
+          #     |> to(eq "UPDATE \"posts\" SET \"tags\" + {'a'} WHERE (\"id\" = ?)")
+          #   end
+          # end
+          context "with if: :exists" do
+            it "generates cql" do
+              query = (from p in "posts", where: p.id == 1, update: [set: [title: "a", text: "b"]]) |> normalize(:update_all)
+              expect(to_cql(:update_all, query, if: :exists))
+              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE (\"id\" = 1) IF EXISTS")
+            end
+          end
+        end
+        context "with :delete_all" do
+          it "generates cql" do
+            query = (from p in "posts", where: p.id == 1) |> normalize(:delete_all)
+            expect(to_cql(:delete_all, query))
+            |> to(eq "DELETE FROM \"posts\" WHERE (\"id\" = 1)")
+          end
+        end
       end
     end
   end

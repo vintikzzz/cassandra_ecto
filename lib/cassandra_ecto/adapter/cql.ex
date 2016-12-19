@@ -28,10 +28,10 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     where = where(query)
     assemble(["DELETE", from, where])
   end
-  def to_cql(:update_all, %{from: {from, _name}, prefix: prefix} = query, _opts) do
+  def to_cql(:update_all, %{from: {from, _name}, prefix: prefix} = query, opts) do
     fields = update_fields(query)
     where  = where(query)
-    assemble(["UPDATE", quote_table(prefix, from), "SET", fields, where])
+    assemble(["UPDATE", quote_table(prefix, from), using(opts), "SET", fields, where, if_op(opts)])
   end
   def to_cql(:insert, %{source: {prefix, source}}, fields, on_conflict, opts) do
     header = fields |> Keyword.keys
@@ -57,13 +57,14 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     quoted = quote_name(key)
     quoted <> " = " <> quoted <> " + " <> expr(value, query)
   end
-  # defp update_op(:push, key, value, query) do
+  # defp update_op(:push, key, value, %Query{from: {_from, name}} = query) do
+  #   IO.inspect name.__schema__(:type, key)
   #   quoted = quote_name(key)
   #   quoted <> " = " <> quoted <> " + " <> expr(value, query)
   # end
   # defp update_op(:pull, key, value, query) do
   #   quoted = quote_name(key)
-  #   quoted <> " = " <> quoted <> " - [" <> expr(value, query) <> "]"
+  #   quoted <> " = " <> quoted <> " - " <> expr(value, query)
   # end
   defp update_op(command, _key, _value, query), do:
     error!(query, "Cassandra adapter doesn't support #{inspect command} update operation")
