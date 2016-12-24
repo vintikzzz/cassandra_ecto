@@ -93,6 +93,18 @@ defmodule CassandraEctoAdapterSpec do
           fetched_post = TestRepo.one(Post)
           expect(fetched_post) |> to(eq post)
         end
+        it "inserts record with now() if has option binary_id: :now" do
+          post = factory(:post)
+          post = TestNowRepo.insert!(post, binary_id: :now)
+          fetched_post = TestNowRepo.one(Post)
+          expect(fetched_post) |> to_not(eq post)
+        end
+        it "inserts record with now() if repo has option binary_id: :now" do
+          post = factory(:post)
+          post = TestNowRepo.insert!(post)
+          fetched_post = TestNowRepo.one(Post)
+          expect(fetched_post) |> to_not(eq post)
+        end
         it "inserts record with ttl and timestamp" do
           post = factory(:post)
           post = TestRepo.insert!(post, on_conflict: :nothing, ttl: 1000, timestamp: :os.system_time(:micro_seconds))

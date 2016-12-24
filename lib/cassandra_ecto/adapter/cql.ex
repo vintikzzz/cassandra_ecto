@@ -33,10 +33,10 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     where  = where(query)
     assemble(["UPDATE", quote_table(prefix, from), using(opts), "SET", fields, where, if_op(opts)])
   end
-  def to_cql(:insert, %{source: {prefix, source}}, fields, on_conflict, opts) do
+  def to_cql(:insert, %{autogenerate_id: autogenerate, source: {prefix, source}}, fields, on_conflict, opts) do
     header = fields |> Keyword.keys
     values = "(" <> Enum.map_join(header, ", ", &quote_name/1) <> ") " <>
-      "VALUES " <> "(" <> Enum.map_join(header, ", ", fn _arg -> "?" end) <> ")"
+      "VALUES " <> "(" <> Enum.map_join(header, ", ", &insert_value(autogenerate, &1, Keyword.get(opts, :binary_id, :default))) <> ")"
     assemble(["INSERT INTO", quote_table(prefix, source), values, on_conflict(on_conflict, opts), using(opts)])
   end
   def to_cql(:update, %{source: {prefix, source}}, fields, filters, opts), do:
@@ -44,6 +44,12 @@ defmodule Cassandra.Ecto.Adapter.CQL do
       "WHERE", filter(filters), if_op(opts)])
   def to_cql(:delete, %{source: {prefix, source}}, fields, opts), do:
     assemble(["DELETE FROM", quote_table(prefix, source), using(opts), "WHERE", filter(fields)])
+
+  defp insert_value({id, :binary_id}, field, type) when field == id and type in [:now, :uuid], do:
+    Atom.to_string(type) <> "()"
+  defp insert_value({id, :id}, field, _) when field == id, do: error! nil,
+    "Cassandra adapter supports only :binary_id"
+  defp insert_value(_, field, _), do: "?"
 
   defp update_fields(%Query{updates: updates} = query), do:
     for(%{expr: expr} <- updates,

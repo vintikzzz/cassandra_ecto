@@ -4,11 +4,15 @@ Code.require_file "support/factories.exs", __DIR__
 
 Application.put_env(:ecto, TestRepo, adapter: Cassandra.Ecto)
 Application.put_env(:ecto, TestUpsertRepo, adapter: Cassandra.Ecto, upsert: true)
+Application.put_env(:ecto, TestNowRepo, adapter: Cassandra.Ecto, binary_id: :now)
 
 defmodule TestRepo, do:
   use Ecto.Repo, otp_app: :ecto
 
 defmodule TestUpsertRepo, do:
+  use Ecto.Repo, otp_app: :ecto
+
+defmodule TestNowRepo, do:
   use Ecto.Repo, otp_app: :ecto
 
 ESpec.configure fn(config) ->
@@ -28,3 +32,4 @@ end
 
 {:ok, _pid} = TestRepo.start_link
 {:ok, _pid} = TestUpsertRepo.start_link
+{:ok, _pid} = TestNowRepo.start_link

@@ -133,33 +133,47 @@ defmodule CassandroEctoAdapterCQLSpec do
         end
       end
       context "with :insert" do
+        context "with :autogenerate_id" do
+          it "generates cql with now() for option binary_id: :now" do
+            expect(to_cql(:insert, %{autogenerate_id: {:id, :binary_id}, source: {nil, "posts"}}, [id: nil, title: "a", text: "b"], {:raise, [], []}, [binary_id: :now]))
+            |> to(eq "INSERT INTO \"posts\" (\"id\", \"title\", \"text\") VALUES (now(), ?, ?) IF NOT EXISTS")
+          end
+          it "generates cql with uuid() for option binary_id: :uuid" do
+            expect(to_cql(:insert, %{autogenerate_id: {:id, :binary_id}, source: {nil, "posts"}}, [id: nil, title: "a", text: "b"], {:raise, [], []}, [binary_id: :uuid]))
+            |> to(eq "INSERT INTO \"posts\" (\"id\", \"title\", \"text\") VALUES (uuid(), ?, ?) IF NOT EXISTS")
+          end
+          it "fails with autogenerate_id: {_, :id}" do
+            expect(fn -> to_cql(:insert, %{autogenerate_id: {:id, :id}, source: {nil, "posts"}}, [id: nil, title: "a", text: "b"], {:raise, [], []}, []) end)
+            |> to(raise_exception(ArgumentError))
+          end
+        end
         context "with on_conflict :raise" do
           it "generates cql with \"IF NOT EXISTS\"" do
-            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, []))
+            expect(to_cql(:insert, %{autogenerate_id: nil, source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, []))
             |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS")
           end
         end
         context "with on_conflict :nothing" do
           it "generates cql for Cassandra upsert" do
-            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
+            expect(to_cql(:insert, %{autogenerate_id: nil, source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
             |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?)")
           end
         end
         context "with on_conflict :nothing and if: :not_exists" do
           it "generates cql with \"IF NOT EXISTS\"" do
-            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, if: :not_exists))
+            expect(to_cql(:insert, %{autogenerate_id: nil, source: {nil, "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, if: :not_exists))
             |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS")
           end
         end
         context "with :prefix" do
           it "generates cql with Cassandra keyspace" do
-            expect(to_cql(:insert, %{source: {"test", "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
+            expect(to_cql(:insert, %{autogenerate_id: nil, source: {"test", "posts"}}, [title: "a", text: "b"], {:nothing, [], []}, []))
             |> to(eq "INSERT INTO \"test\".\"posts\" (\"title\", \"text\") VALUES (?, ?)")
           end
         end
         context "with :timestamp and :ttl" do
           it "generates cql" do
-            expect(to_cql(:insert, %{source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, ttl: 86400, timestamp: 123456789))
+            expect(to_cql(:insert, %{autogenerate_id: nil, source: {nil, "posts"}}, [title: "a", text: "b"], {:raise, [], []}, ttl: 86400, timestamp: 123456789))
             |> to(eq "INSERT INTO \"posts\" (\"title\", \"text\") VALUES (?, ?) IF NOT EXISTS USING TTL 86400 AND TIMESTAMP 123456789")
           end
         end

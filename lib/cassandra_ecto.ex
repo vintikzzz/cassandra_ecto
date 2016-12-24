@@ -90,6 +90,8 @@ defmodule Cassandra.Ecto do
 
   def child_spec(repo, opts), do: Connection.child_spec(repo, opts)
 
+  def ensure_all_started(_repo, _type), do: {:ok, []}
+
   ## Adapter
   alias Cassandra.Ecto.Adapter
   defdelegate prepare(func, query), to: Adapter

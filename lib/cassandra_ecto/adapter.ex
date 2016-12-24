@@ -129,6 +129,27 @@ defmodule Cassandra.Ecto.Adapter do
   You can specify TTL and TIMESTAMP with `:ttl` and `:timestamp` respectively
   on query level.
 
+  ## `:binary_id` autogeneration
+
+  By default Cassandra adapter generates `:binary_id` with `Ecto.UUID.bingenerate()`.
+
+  But it is also possible to override this behaviour and generate id natively
+  on Cassandra side with build-in functions `now()` or `uuid()` like so:
+
+      post = Repo.insert!(post, binary_id: :now)
+
+  If you have decided to make it default for repo:
+
+      config :my_app, Repo,
+        keyspace: "my_keyspace"
+        binary_id: :now
+
+  Possible option variants:
+
+      :now
+      :uuid
+      :default
+
   ## Transactions
 
   CASSANDRA DOESN'T SUPPORT TRANSACTIONS!
@@ -170,6 +191,7 @@ defmodule Cassandra.Ecto.Adapter do
   def insert(_repo, meta, _params, _on_conflict, [_|_] = returning, _opts), do:
     read_write_error!(meta, returning)
   def insert(repo, meta, fields, on_conflict, [], opts) do
+    opts = Keyword.put_new(opts, :binary_id, Keyword.get(repo.__pool__, :binary_id, :default))
     on_conflict = prepare_on_conflict(repo, on_conflict)
     cql = to_cql(:insert, meta, fields, on_conflict, opts)
     fields = fields ++ if_fields(opts)
