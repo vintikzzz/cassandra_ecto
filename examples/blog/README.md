@@ -3,7 +3,7 @@
 Example project
 
 ```
-$ mix do deps.get, ecto.migrate
+$ mix do deps.get, ecto.create, ecto.migrate
 $ iex -S mix
 iex(1)> post = %Blog.Post{title: "some awesome title", text: "great content", tags: ~w(cool awesome great)}
 %Blog.Post{__meta__: #Ecto.Schema.Metadata<:built, "posts">, id: nil,
