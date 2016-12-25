@@ -17,6 +17,7 @@ defmodule Cassandra.Ecto.Connection do
                  batch_mode: :logged, log: false, batched: false]
 
   def init({repo, opts}) do
+    repo.__adapter__.ensure_all_started(repo, :temporary)
     config = repo.__pool__
     name = pool_name(repo, opts)
     nodes = Keyword.get(config, :nodes, [{@default_host, @default_port}])

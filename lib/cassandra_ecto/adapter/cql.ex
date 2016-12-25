@@ -49,7 +49,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     Atom.to_string(type) <> "()"
   defp insert_value({id, :id}, field, _) when field == id, do: error! nil,
     "Cassandra adapter supports only :binary_id"
-  defp insert_value(_, field, _), do: "?"
+  defp insert_value(_, _, _), do: "?"
 
   defp update_fields(%Query{updates: updates} = query), do:
     for(%{expr: expr} <- updates,
