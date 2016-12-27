@@ -12,15 +12,19 @@ defmodule Cassandra.Ecto.Migration.CQL do
   @allowed_column_opts [:primary_key, :partition_key, :null,
                         :clustering_column, :frozen, :static]
 
-  def to_cql({command, %Table{options: [as: :type]} = table, columns}) when command in @creates do
-    assemble(["CREATE TYPE", if_not_exists(command), quote_table(table),
-      "(#{column_definitions(table, columns)})"])
-  end
-  def to_cql({command, %Table{} = table, columns}) when command in @creates do
-    assemble(["CREATE TABLE", if_not_exists(command), quote_table(table),
-      "(#{column_definitions(table, columns)}, #{pk_definition(columns)})",
-      with_definitions_any(table)])
-  end
+  def to_cql({command, %Table{} = table, columns}) when command in @creates, do:
+    table
+    |> get_type
+    |> fn t -> to_cql({t, command, table, columns}) end.()
+  def to_cql({command, %Table{} = table}) when command in @drops, do:
+    table
+    |> get_type
+    |> get_type_cql_name
+    |> drop(table, command)
+  def to_cql({:alter, %Table{} = table, changes}), do:
+    table
+    |> get_type
+    |> fn t -> to_cql({t, :alter, table, changes}) end.()
   def to_cql({command, %Index{} = index}) when command in @creates do
     fields = Enum.map_join(index.columns, ", ", &quote_name/1)
     validate_index!(index)
@@ -30,19 +34,49 @@ defmodule Cassandra.Ecto.Migration.CQL do
   end
   def to_cql({_command, %Constraint{} = _constraint}), do:
     error! nil, "Cassandra adapter does not support constraints"
-  def to_cql({:alter, %Table{} = table, changes}), do:
+  def to_cql({:table, :alter, %Table{} = table, changes}), do:
+    assemble([alter(table), column_changes(table, changes), with_definitions_any(table)])
+  def to_cql({:type, :alter, %Table{} = table, changes}), do:
     assemble([alter(table), column_changes(table, changes)])
+  def to_cql({:materialized_view, :alter, %Table{options: options} = table, _changes}) do
+    def_options = case options |> Enum.reject &(elem(&1, 0) in [:type]) do
+      [] -> nil
+      any -> any
+    end
+    assemble([alter(table), with_definitions_any(%Table{options: def_options})])
+  end
   def to_cql({:rename, %Table{} = table, old, new}), do:
     assemble([alter(table), "RENAME", quote_name(old), "TO", quote_name(new)])
   def to_cql({:rename, %Table{} = _old, %Table{} = _new}), do:
     error! nil, "Cassandra adapter does not support table renaming"
   def to_cql(string) when is_binary(string), do: string
-  def to_cql({command, %Table{options: [as: :type]} = table}) when command in @drops, do:
-    drop("TYPE", table, command)
-  def to_cql({command, %Table{} = table}) when command in @drops, do:
-    drop("TABLE", table, command)
   def to_cql({command, %Index{} = index}) when command in @drops, do:
     drop("INDEX", index, command)
+  def to_cql({:type, command, %Table{} = type, columns}) when command in @creates do
+    assemble(["CREATE TYPE", if_not_exists(command), quote_table(type),
+      "(#{column_definitions(type, columns)})"])
+  end
+  def to_cql({:table, command, %Table{} = table, columns}) when command in @creates do
+    assemble(["CREATE TABLE", if_not_exists(command), quote_table(table),
+      "(#{column_definitions(table, columns)}, #{pk_definition(columns)})",
+      with_definitions_any(table)])
+  end
+  def to_cql({:materialized_view, command, %Table{options: options} = view, _columns}) when command in @creates do
+    def_options = case options |> Enum.reject &(elem(&1, 0) in [:type, :as, :primary_key]) do
+      [] -> nil
+      any -> any
+    end
+    assemble(["CREATE MATERIALIZED VIEW", if_not_exists(command), quote_table(view),
+             as(Keyword.get(options, :as)), pk_definition(Keyword.get(options, :primary_key)),
+             with_definitions_any(%Table{options: def_options})])
+  end
+
+  defp as(%Ecto.Query{} = query) do
+    {query, _params, _key} = Ecto.Query.Planner.prepare(query, :all, Cassandra.Ecto, 0)
+    query = Ecto.Query.Planner.normalize(query, :all, Cassandra.Ecto, 0)
+    cql = Cassandra.Ecto.Adapter.CQL.to_cql(:all, query)
+    ["AS", cql]
+  end
 
   defp index_using(%Index{using: nil}), do: ""
   defp index_using(%Index{using: using}), do: "USING '#{using}'"
@@ -59,8 +93,7 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp if_not_exists(command), do: if command == :create_if_not_exists, do: "IF NOT EXISTS", else: ""
   defp if_exists(command), do: if command == :drop_if_exists, do: "IF EXISTS", else: ""
 
-  defp alter(%Table{options: [as: :type]} = table), do: assemble(["ALTER TYPE", quote_table(table)])
-  defp alter(%Table{} = table), do: assemble(["ALTER TABLE", quote_table(table)])
+  defp alter(%Table{} = table), do: assemble(["ALTER", table |> get_type |> get_type_cql_name, quote_table(table)])
 
   defp drop(name, table, command), do:
     assemble(["DROP", name, if_exists(command), quote_table(table)])
@@ -71,10 +104,10 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp column_change(_table, {_command, _name, %Reference{}, _opts}), do:
     error! nil, "Cassandra adapter does not support references"
   defp column_change(_table, {:add, name, type, opts}), do:
-    assemble(["ADD ", quote_name(name), column_type(type, opts)])
+    assemble(["ADD", quote_name(name), column_type(type, opts)])
   defp column_change(_table, {:modify, name, type, opts}), do:
-    assemble(["ALTER ", quote_name(name), "TYPE", column_type(type, opts)])
-  defp column_change(_table, {:remove, name}), do: "DROP #{quote_name(name)}"
+    assemble(["ALTER", quote_name(name), "TYPE", column_type(type, opts)])
+  defp column_change(_table, {:remove, name}), do: assemble(["DROP", quote_name(name)])
 
   defp column_definition(_table, {:add, _name, %Reference{} = _ref, _opts}), do:
     error! nil, "Cassandra adapter does not support references"
@@ -126,6 +159,7 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp ecto_to_db(:string),          do: "text"
   defp ecto_to_db(:map),             do: ecto_to_db({:map, :binary})
   defp ecto_to_db({:map, {t1, t2}}), do: "map<#{ecto_to_db(t1)}, #{ecto_to_db(t2)}>"
+  defp ecto_to_db({:map, t1, t2}),   do: "map<#{ecto_to_db(t1)}, #{ecto_to_db(t2)}>"
   defp ecto_to_db({:map, t}),        do: ecto_to_db({:map, {:varchar, t}})
   defp ecto_to_db({:array, t}),      do: "list<#{ecto_to_db(t)}>"
   defp ecto_to_db({:list, t}),       do: "list<#{ecto_to_db(t)}>"
@@ -171,6 +205,10 @@ defmodule Cassandra.Ecto.Migration.CQL do
   defp with_val(val) when is_binary(val) or is_atom(val), do: "'#{val}'"
   defp with_val(val), do: val
 
+  defp pk_definition(columns) when is_binary(columns), do:
+    assemble(["PRIMARY KEY", columns])
+  defp pk_definition(columns) when is_tuple(columns), do:
+    pk_tuple_definition(columns) |> pk_definition
   defp pk_definition(columns) do
     pks             = get_col_names(columns, :primary_key)
     partition_keys  = get_col_names(columns, :partition_key)
@@ -188,7 +226,7 @@ defmodule Cassandra.Ecto.Migration.CQL do
         """
     end
 
-    "PRIMARY KEY (#{partition_part(partition_keys)}#{clustering_part(clustering_cols)})"
+    pk_definition("(#{partition_part(partition_keys)}#{clustering_part(clustering_cols)})")
   end
 
   defp partition_part(partition_keys) do
@@ -209,4 +247,23 @@ defmodule Cassandra.Ecto.Migration.CQL do
     for {_, name, _, opts} <- columns,
       opts[type],
       do: name
+
+  defp pk_tuple_definition(columns) when is_tuple(columns), do:
+    Tuple.to_list(columns)
+    |> Enum.map_join(", ", &pk_tuple_definition/1)
+    |> fn arg -> "(" <> arg <> ")" end.()
+  defp pk_tuple_definition(column) when is_binary(column), do: quote_name(column)
+  defp pk_tuple_definition(column) when is_atom(column), do:
+    pk_tuple_definition(Atom.to_string(column))
+
+  defp get_type(%Table{options: nil}), do: :table
+  defp get_type(%Table{} = table), do: Keyword.get(table.options, :type, :table)
+
+  defp get_type_cql_name(type) do
+    case type do
+      :type              -> "TYPE"
+      :materialized_view -> "MATERIALIZED VIEW"
+      :table             -> "TABLE"
+    end
+  end
 end

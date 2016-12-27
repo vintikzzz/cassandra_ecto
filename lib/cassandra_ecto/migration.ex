@@ -96,7 +96,7 @@ defmodule Cassandra.Ecto.Migration do
       :counter                        counter
       :map                            map<varchar, blob>
       {:map, :integer}                map<varchar, int>
-      {:map, {:integer, :string}      map<int, text>
+      {:map, :integer, :string}       map<int, text>
       {:array, :integer}              list<int>
       {:list, :integer}               list<int>
       {:set, :integer}                set<int>
@@ -171,7 +171,7 @@ defmodule Cassandra.Ecto.Migration do
   defmacro __using__(_) do
     quote do
       use Ecto.Migration
-      import Cassandra.Ecto.Migration, only: [type: 1]
+      import Cassandra.Ecto.Migration, only: [type: 1, materialized_view: 1, materialized_view: 2]
     end
   end
 
@@ -186,8 +186,22 @@ defmodule Cassandra.Ecto.Migration do
         add :posted_at, :utc_datetime
       end
   """
-  def type(name) when is_atom(name) do
-    struct(%Table{name: name, primary_key: false, options: [as: :type]})
+  def type(name) do
+    struct(%Table{name: name, primary_key: false, options: [type: :type]})
+  end
+
+  @doc """
+  Defines Cassandra materialized view
+
+  ### Example
+
+      create materialized_view(:cyclist_by_age,
+          as: (from c in "cyclist_mv", select: {c.age, c.birthday, c.name, c.country})),
+          primary_key: {:age, :cid}
+  """
+  def materialized_view(name, options \\ []) do
+    options = options |> Keyword.put(:type, :materialized_view)
+    struct(%Table{name: name, primary_key: false, options: options})
   end
 
   @doc """

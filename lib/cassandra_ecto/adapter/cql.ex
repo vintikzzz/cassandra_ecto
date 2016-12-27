@@ -220,8 +220,11 @@ defmodule Cassandra.Ecto.Adapter.CQL do
     expr(right, query) <> " CONTAINS " <> expr(left, query)
   defp expr({:is_nil, _, [arg]}, query), do:
     "#{expr(arg, query)} IS NULL"
-  defp expr({:not, _, [expr]}, query), do:
+  defp expr({:not, _, [{:is_nil, _, [arg]}]}, query), do:
+    "#{expr(arg, query)} IS NOT NULL"
+  defp expr({:not, _, [expr]}, query) do
     "NOT (" <> expr(expr, query) <> ")"
+  end
   defp expr({:fragment, _, parts}, query) do
     Enum.map_join(parts, "", fn
       {:raw, part}  -> part

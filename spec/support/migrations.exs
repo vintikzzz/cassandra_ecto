@@ -58,6 +58,31 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
     end
   end
 
+  defmodule MaterializedViewMigration do
+    use Cassandra.Ecto.Migration
+    import Ecto.Query
+    @table :materialized_view_table_migration
+    @view  :materialized_view_view_migration
+
+    def up do
+      create table(@table, primary_key: false) do
+        add :id,    :integer,     primary_key: true
+        add :value, :integer
+      end
+      create materialized_view(@view, primary_key: {:value, :id},
+        as: (from p in Atom.to_string(@table), select: {p.id, p.value}, where: not(is_nil(p.value))))
+      execute "INSERT INTO #{@table} (id, value) VALUES (1, 1)"
+      execute "INSERT INTO #{@table} (id, value) VALUES (2, 2)"
+      execute "INSERT INTO #{@table} (id, value) VALUES (3, 2)"
+    end
+
+    def down do
+      drop materialized_view(@view)
+      drop table(@table)
+    end
+
+  end
+
   defmodule CreateWithDifferentTypesMigration do
     use Cassandra.Ecto.Migration
 

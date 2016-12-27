@@ -10,7 +10,7 @@ Documentation: http://hexdocs.pm/cassandra_ecto/
 
 ## Features
 
-* Migrations (with UDT support)
+* Migrations (with UDT and materialized views support)
 * Lightweight transactions
 * Batching (only for `insert_all` queries)
 * Streaming
@@ -62,7 +62,7 @@ Tested against 3.7+.
     ```elixir
     def deps do
       [{:cqerl, github: "matehat/cqerl", tag: "v1.0.2", only: :test},
-      {:cassandra_ecto, "~> 0.3.0"}]
+      {:cassandra_ecto, "~> 0.4.0"}]
     end
     ```
 

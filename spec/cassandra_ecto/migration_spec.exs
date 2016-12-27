@@ -11,8 +11,7 @@ defmodule CassandraEctoMigrationSpec do
     CreateWithDifferentTypesMigration, CustomIndexMigration,
     CustomIndexWithOptsMigration, CreateUserTypeMigration,
     AlterTypeMigration, CreateCounterMigration, CreateWithPrimaryAndPartitionKeys,
-    CreateWithWithoutPrimaryAndPartitionKeys
-  }
+    CreateWithWithoutPrimaryAndPartitionKeys, MaterializedViewMigration}
   describe "Cassandra.Ecto", context_tag: :db do
     describe "Migration behaviour" do
       before do
@@ -37,7 +36,7 @@ defmodule CassandraEctoMigrationSpec do
               expect(fn -> up(TestRepo, 84050906120000, CreateWithPrimaryAndPartitionKeys, log: false) end)
               |> to(raise_exception())
             end
-            it "fails to create table without primary and partition keys", focus: true do
+            it "fails to create table without primary and partition keys" do
               expect(fn -> up(TestRepo, 85050906120000, CreateWithWithoutPrimaryAndPartitionKeys, log: false) end)
               |> to(raise_exception())
             end
@@ -59,6 +58,11 @@ defmodule CassandraEctoMigrationSpec do
               assert :ok = up(TestRepo, 12050906120000, CreateCounterMigration, log: false)
               assert [1] = TestRepo.all from p in "create_counter_migration", select: p.counter
               down(TestRepo, 12050906120000, CreateCounterMigration, log: false)
+            end
+            it "creates materialized views" do
+              assert :ok = up(TestRepo, 12750906120000, MaterializedViewMigration, log: false)
+              assert [2, 3] = TestRepo.all from p in "materialized_view_view_migration", select: p.id, where: p.value == 2
+              assert :ok = down(TestRepo, 12750906120000, MaterializedViewMigration, log: false)
             end
           end
           context "with %Index" do

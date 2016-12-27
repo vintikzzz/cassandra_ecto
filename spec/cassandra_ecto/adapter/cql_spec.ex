@@ -1,4 +1,4 @@
-defmodule CassandroEctoAdapterCQLSpec do
+defmodule CassandraEctoAdapterCQLSpec do
   import Cassandra.Ecto.Adapter.CQL
   import Ecto.Query
   alias Cassandra.Ecto.Spec.Support.Schemas.Post
