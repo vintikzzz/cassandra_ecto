@@ -20,8 +20,8 @@ defmodule CassandraEctoMigrationCQLSpec do
           |> to(eq "CREATE TYPE \"test\" (\"a\" int, \"b\" int)")
         end
         it "generates cql to create materialized view" do
-          to_cql({:create, %Table{name: :test_view, options: [type: :materialized_view, as: (from p in "test", select: {p.a, p.b}), primary_key: {:a, :b}, comment: "test"]}, []})
-          |> to(eq "CREATE MATERIALIZED VIEW \"test_view\" AS SELECT \"a\", \"b\" FROM \"test\" PRIMARY KEY (\"a\", \"b\") WITH COMMENT = 'test'")
+          to_cql({:create, %Table{name: :test_view, options: [type: :materialized_view, as: (from p in "test", select: {p.a, p.b}, where: not(is_nil(p.a)) and not(is_nil(p.b))), primary_key: {:a, :b}, comment: "test"]}, []})
+          |> to(eq "CREATE MATERIALIZED VIEW \"test_view\" AS SELECT \"a\", \"b\" FROM \"test\" WHERE \"a\" IS NOT NULL AND \"b\" IS NOT NULL PRIMARY KEY (\"a\", \"b\") WITH COMMENT = 'test'")
         end
       end
       context "with :alter" do

@@ -169,8 +169,7 @@ defmodule Cassandra.Ecto.Adapter.CQL do
 
   defp boolean(_name, [], _query), do: []
   defp boolean(name, [%{expr: expr} | query_exprs], query) do
-    name <> " " <>
-      Enum.reduce(query_exprs, paren_expr(expr, query), fn
+    name <> " " <> Enum.reduce(query_exprs, expr(expr, query), fn
         %BooleanExpr{expr: expr, op: op}, {op, acc} ->
           {op, acc <> operator_to_boolean(op) <> paren_expr(expr, query)}
         %BooleanExpr{expr: expr, op: op}, {_, acc} ->

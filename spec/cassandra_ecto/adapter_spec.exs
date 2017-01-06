@@ -57,6 +57,12 @@ defmodule CassandraEctoAdapterSpec do
               expect(TestRepo.all((from p in Post, where: "abra" in p.tags), allow_filtering: true) |> List.first |> Map.get(:id))
               |> to(eq id)
             end
+            it "writes log to io in :cyan when logging enabled" do
+              message = capture_log(fn ->
+                TestRepo.all((from p in Post), log: true)
+              end)
+              expect(message) |> to(start_with "\e[36")
+            end
           end
         end
         context "with :update_all" do

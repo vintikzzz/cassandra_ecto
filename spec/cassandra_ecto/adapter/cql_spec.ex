@@ -63,22 +63,22 @@ defmodule CassandraEctoAdapterCQLSpec do
           it "generates cql with binary clauses" do
             query = (from p in "posts", where: p.id >= 1 and p.title == "abra") |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE ((\"id\" >= 1) AND (\"title\" = 'abra'))")
+            |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" >= 1) AND (\"title\" = 'abra')")
           end
           it "generates cql with in clauses" do
             query = (from p in "posts", where: p.id in [1, 2]) |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" IN (1, 2))")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"id\" IN (1, 2)")
           end
           it "alters :in to :contains in array field search" do
             query = (from p in "posts", where: "abra" in p.tags) |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE (\"tags\" CONTAINS 'abra')")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"tags\" CONTAINS 'abra'")
           end
           it "supports fragments" do
             query = (from p in "posts", where: p.id > fragment("token(?)", 1)) |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" > token(1))")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"id\" > token(1)")
           end
         end
         context "with :offset" do
@@ -121,7 +121,7 @@ defmodule CassandraEctoAdapterCQLSpec do
           it "generates cql"  do
             query = (from p in "posts", where: p.id == 1) |> normalize
             expect(to_cql(:all, query, allow_filtering: true))
-            |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" = 1) ALLOW FILTERING")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"id\" = 1 ALLOW FILTERING")
           end
         end
         context "with :per_partition_limit" do
@@ -220,14 +220,14 @@ defmodule CassandraEctoAdapterCQLSpec do
             it "generates cql" do
               query = (from p in "posts", where: p.id == 1, update: [inc: [visits: 5]]) |> normalize(:update_all)
               expect(to_cql(:update_all, query))
-              |> to(eq "UPDATE \"posts\" SET \"visits\" = \"visits\" + 5 WHERE (\"id\" = 1)")
+              |> to(eq "UPDATE \"posts\" SET \"visits\" = \"visits\" + 5 WHERE \"id\" = 1")
             end
           end
           context "with :set" do
             it "generates cql" do
               query = (from p in "posts", where: p.id == 1, update: [set: [title: "a", text: "b"]]) |> normalize(:update_all)
               expect(to_cql(:update_all, query))
-              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE (\"id\" = 1)")
+              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE \"id\" = 1")
             end
           end
           # context "with :push" do
@@ -235,14 +235,14 @@ defmodule CassandraEctoAdapterCQLSpec do
           #     id = Ecto.UUID.bingenerate()
           #     query = (from p in Post, where: p.id == ^id, update: [push: [tags: "a"]]) |> normalize(:update_all)
           #     expect(to_cql(:update_all, query))
-          #     |> to(eq "UPDATE \"posts\" SET \"tags\" + {'a'} WHERE (\"id\" = ?)")
+          #     |> to(eq "UPDATE \"posts\" SET \"tags\" + {'a'} WHERE \"id\" = ?")
           #   end
           # end
           context "with if: :exists" do
             it "generates cql" do
               query = (from p in "posts", where: p.id == 1, update: [set: [title: "a", text: "b"]]) |> normalize(:update_all)
               expect(to_cql(:update_all, query, if: :exists))
-              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE (\"id\" = 1) IF EXISTS")
+              |> to(eq "UPDATE \"posts\" SET \"title\" = 'a', \"text\" = 'b' WHERE \"id\" = 1 IF EXISTS")
             end
           end
         end
@@ -250,7 +250,7 @@ defmodule CassandraEctoAdapterCQLSpec do
           it "generates cql" do
             query = (from p in "posts", where: p.id == 1) |> normalize(:delete_all)
             expect(to_cql(:delete_all, query))
-            |> to(eq "DELETE FROM \"posts\" WHERE (\"id\" = 1)")
+            |> to(eq "DELETE FROM \"posts\" WHERE \"id\" = 1")
           end
         end
       end
