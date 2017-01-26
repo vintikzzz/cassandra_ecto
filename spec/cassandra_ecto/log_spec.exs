@@ -3,7 +3,7 @@ defmodule CassandraEctoLogSpec do
 
   use ESpec, async: true
 
-  describe "Cassandra.Log" do
+  describe "Cassandra.Ecto.Log" do
     describe "log/4" do
       it "writes log to io in cyan color for select queries" do
         entry = %{connection_time: 0, decode_time: nil,

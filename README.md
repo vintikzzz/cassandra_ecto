@@ -10,7 +10,7 @@ Documentation: http://hexdocs.pm/cassandra_ecto/
 
 ## Features
 
-* Migrations (with UDT and materialized views support)
+* Migrations (with UDT, UDF, UDA and materialized views support)
 * Lightweight transactions
 * Batching (only for `insert_all` queries)
 * Streaming

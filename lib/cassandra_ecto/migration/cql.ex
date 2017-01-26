@@ -70,12 +70,44 @@ defmodule Cassandra.Ecto.Migration.CQL do
              as(Keyword.get(options, :as)), pk_definition(Keyword.get(options, :primary_key)),
              with_definitions_any(%Table{options: def_options})])
   end
+  def to_cql({:function, command, %Table{options: options} = function, _columns}) when command in @creates do
+    assemble(["CREATE FUNCTION", if_not_exists(command),
+              quote_table(function), function_vars(function),
+              on_null_input(Keyword.fetch!(options, :on_null_input)), "ON NULL INPUT",
+              "RETURNS", ecto_to_db(Keyword.fetch!(options, :returns)),
+              "LANGUAGE", Atom.to_string(Keyword.fetch!(options, :language)),
+              "AS", "$$" <> Keyword.fetch!(options, :as) <> "$$"])
+  end
+  def to_cql({:aggregate, command, %Table{options: options} = aggregate, _columns}) when command in @creates do
+    assemble(["CREATE AGGREGATE", if_not_exists(command),
+              quote_table(aggregate) <> "(" <> ecto_to_db(Keyword.fetch!(options, :var)) <> ")",
+              "SFUNC", quote_table(Keyword.fetch!(options, :sfunc)),
+              "STYPE", ecto_to_db(Keyword.fetch!(options, :stype)),
+              "FINALFUNC", quote_table(Keyword.fetch!(options, :finalfunc)),
+              "INITCOND", initcond(aggregate)])
+  end
 
   defp as(%Ecto.Query{} = query) do
     {query, _params, _key} = Ecto.Query.Planner.prepare(query, :all, Cassandra.Ecto, 0)
     query = Ecto.Query.Planner.normalize(query, :all, Cassandra.Ecto, 0)
     cql = Cassandra.Ecto.Adapter.CQL.to_cql(:all, query)
     ["AS", cql]
+  end
+
+  defp function_vars(%Table{options: options}) do
+    {:ok, vars} = Keyword.fetch(options, :vars)
+    vars
+    |> Enum.map_join(", ", fn {name, type} -> quote_name(name) <> " " <> ecto_to_db(type) end)
+    |> (fn e -> "(" <> e <> ")" end).()
+  end
+
+  defp on_null_input(:called), do: "CALLED"
+  defp on_null_input(:returns_null), do: "RETURNS NULL"
+
+  defp initcond(%Table{options: options}) do
+    type = Keyword.fetch!(options, :stype)
+    value = Keyword.fetch!(options, :initcond)
+    db_value(value, type)
   end
 
   defp index_using(%Index{using: nil}), do: ""
@@ -264,6 +296,8 @@ defmodule Cassandra.Ecto.Migration.CQL do
       :type              -> "TYPE"
       :materialized_view -> "MATERIALIZED VIEW"
       :table             -> "TABLE"
+      :function          -> "FUNCTION"
+      :aggregate         -> "AGGREGATE"
     end
   end
 end

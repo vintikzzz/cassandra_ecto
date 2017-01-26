@@ -3,6 +3,34 @@ defmodule Cassandra.Ecto.Helper do
 
   alias Ecto.Migration.{Table, Index}
   alias Ecto.Query
+
+  def db_value(value, {:tuple, types}) when is_tuple(value) and is_tuple(types) do
+    Enum.zip(Tuple.to_list(value), Tuple.to_list(types))
+    |> Enum.map_join(", ", &db_value(elem(&1, 0), elem(&1, 1)))
+    |> fn e -> "(" <> e  <> ")" end.()
+  end
+  def db_value(value, {:list, type}) when is_list(value) do
+    value
+    |> Enum.map_join(", ", &db_value(&1, type))
+    |> fn e -> "[" <> e  <> "]" end.()
+  end
+  def db_value(value, {:set, type}) when is_list(value) do
+    value
+    |> Enum.map_join(", ", &db_value(&1, type))
+    |> fn e -> "{" <> e  <> "}" end.()
+  end
+  def db_value(value, {:map, type}) when is_map(value), do:
+    db_value(value, {:map, :string, type})
+  def db_value(value, {:map, key_type, value_type}) when is_map(value) do
+    Map.to_list(value)
+    |> Enum.map_join(", ", &db_value(&1, {key_type, value_type}))
+    |> fn e -> "{" <> e  <> "}" end.()
+  end
+  def db_value({key, value}, {key_type, value_type}), do:
+    db_value(key, key_type) <> ": " <> db_value(value, value_type)
+  def db_value(value, _) when is_binary(value), do: "$$" <> value <> "$$"
+  def db_value(value, _), do: to_string(value)
+
   def quote_name(name)
   def quote_name(name) when is_atom(name),
     do: quote_name(Atom.to_string(name))

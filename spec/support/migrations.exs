@@ -83,6 +83,29 @@ defmodule Cassandra.Ecto.Spec.Support.Migrations do
 
   end
 
+  defmodule FunctionMigration do
+    use Cassandra.Ecto.Migration
+
+    @table :function_migration
+    @function :left
+
+    def up do
+      create table(@table, primary_key: false) do
+        add :id,    :uuid,     primary_key: true
+        add :value, :text
+      end
+      create function(@function, [column: :text, num: :int], returns: :text,
+        as: "return column.substring(0, Math.min(column.length(), num));")
+      execute "INSERT INTO #{@table} (id, value) VALUES (now(), 'abra')"
+      execute "INSERT INTO #{@table} (id, value) VALUES (now(), 'cadabra')"
+    end
+
+    def down do
+      drop function(@function)
+      drop table(@table)
+    end
+  end
+
   defmodule CreateWithDifferentTypesMigration do
     use Cassandra.Ecto.Migration
 

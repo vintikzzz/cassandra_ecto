@@ -65,6 +65,11 @@ defmodule CassandraEctoAdapterCQLSpec do
             expect(to_cql(:all, query))
             |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" >= 1) AND (\"title\" = 'abra')")
           end
+          it "generates cql with nested binary clauses" do
+            query = (from p in "posts", where: (p.id >= 1 and p.title == "abra") or p.id == 1) |> normalize
+            expect(to_cql(:all, query))
+            |> to(eq "SELECT * FROM \"posts\" WHERE ((\"id\" >= 1) AND (\"title\" = 'abra')) OR (\"id\" = 1)")
+          end
           it "generates cql with in clauses" do
             query = (from p in "posts", where: p.id in [1, 2]) |> normalize
             expect(to_cql(:all, query))

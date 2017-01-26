@@ -11,7 +11,8 @@ defmodule CassandraEctoMigrationSpec do
     CreateWithDifferentTypesMigration, CustomIndexMigration,
     CustomIndexWithOptsMigration, CreateUserTypeMigration,
     AlterTypeMigration, CreateCounterMigration, CreateWithPrimaryAndPartitionKeys,
-    CreateWithWithoutPrimaryAndPartitionKeys, MaterializedViewMigration}
+    CreateWithWithoutPrimaryAndPartitionKeys, MaterializedViewMigration,
+    FunctionMigration}
   describe "Cassandra.Ecto", context_tag: :db do
     describe "Migration behaviour" do
       before do
@@ -64,6 +65,11 @@ defmodule CassandraEctoMigrationSpec do
               assert [2, 3] = TestRepo.all from p in "materialized_view_view_migration", select: p.id, where: p.value == 2
               assert :ok = down(TestRepo, 12750906120000, MaterializedViewMigration, log: false)
             end
+            it "creates function" do
+              assert :ok = up(TestRepo, 12750906120001, FunctionMigration, log: false)
+              assert ["abr", "cad"] = (TestRepo.all from p in "function_migration", select: fragment("left(?, 3)", p.value)) |> Enum.sort
+              assert :ok = down(TestRepo, 12750906120001, FunctionMigration, log: false)
+            end
           end
           context "with %Index" do
             it "creates index" do
@@ -87,9 +93,6 @@ defmodule CassandraEctoMigrationSpec do
               |> to(raise_exception())
             end
           end
-        end
-        context "when :create_if_not_exists" do
-          pending "creates table"
         end
         context "when :rename" do
           it "renames column" do
@@ -125,12 +128,6 @@ defmodule CassandraEctoMigrationSpec do
             assert :ok = up(TestRepo, 19100906120000, AlterTypeMigration, log: false)
             down(TestRepo, 19100906120000, AlterTypeMigration, log: false)
           end
-        end
-        context "when :drop" do
-          pending "drops table"
-        end
-        context "when :drop_if_exists" do
-          pending "drops table"
         end
       end
     end

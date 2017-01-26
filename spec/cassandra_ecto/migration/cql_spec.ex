@@ -23,6 +23,18 @@ defmodule CassandraEctoMigrationCQLSpec do
           to_cql({:create, %Table{name: :test_view, options: [type: :materialized_view, as: (from p in "test", select: {p.a, p.b}, where: not(is_nil(p.a)) and not(is_nil(p.b))), primary_key: {:a, :b}, comment: "test"]}, []})
           |> to(eq "CREATE MATERIALIZED VIEW \"test_view\" AS SELECT \"a\", \"b\" FROM \"test\" WHERE \"a\" IS NOT NULL AND \"b\" IS NOT NULL PRIMARY KEY (\"a\", \"b\") WITH COMMENT = 'test'")
         end
+        it "generates cql to create user function in :java" do
+          to_cql({:create, %Table{name: :fLog, prefix: :cycling, options: [type: :function, vars: [input: :double], returns: :double, language: :java, on_null_input: :called, as: "return Double.valueOf(Math.log(input.doubleValue()));"]}, []})
+          |> to(eq "CREATE FUNCTION \"cycling\".\"fLog\" (\"input\" double) CALLED ON NULL INPUT RETURNS double LANGUAGE java AS $$return Double.valueOf(Math.log(input.doubleValue()));$$")
+        end
+        it "generates cql to create user function in :javascript" do
+          to_cql({:create_if_not_exists, %Table{name: :left, prefix: :cycling, options: [type: :function, vars: [column: :text, num: :int], returns: :text, language: :javascript, on_null_input: :returns_null, as: "column.substring(0,num)"]}, []})
+          |> to(eq "CREATE FUNCTION IF NOT EXISTS \"cycling\".\"left\" (\"column\" text, \"num\" int) RETURNS NULL ON NULL INPUT RETURNS text LANGUAGE javascript AS $$column.substring(0,num)$$")
+        end
+        it "generates cql to create aggregate", focus: true do
+          to_cql({:create, %Table{name: :average, prefix: :cycling, options: [type: :aggregate, var: :int, sfunc: %Table{name: :avgState, options: [type: :function]}, stype: {:tuple, {:int, :bigint}}, finalfunc: %Table{name: :avgFinal, options: [type: :function]}, initcond: {0, 0}]}, []})
+          |> to(eq "CREATE AGGREGATE \"cycling\".\"average\"(int) SFUNC \"avgState\" STYPE tuple<int, bigint> FINALFUNC \"avgFinal\" INITCOND (0, 0)")
+        end
       end
       context "with :alter" do
         it "generates cql to alter table" do
@@ -54,6 +66,14 @@ defmodule CassandraEctoMigrationCQLSpec do
         it "generates cql to drop materialized view" do
           to_cql({:drop, %Table{name: :test, options: [type: :materialized_view]}})
           |> to(eq "DROP MATERIALIZED VIEW \"test\"")
+        end
+        it "generates cql to drop user function" do
+          to_cql({:drop, %Table{name: :test, options: [type: :function]}})
+          |> to(eq "DROP FUNCTION \"test\"")
+        end
+        it "generates cql to drop user aggregation" do
+          to_cql({:drop, %Table{name: :test, options: [type: :aggregate]}})
+          |> to(eq "DROP AGGREGATE \"test\"")
         end
       end
     end

@@ -171,7 +171,7 @@ defmodule Cassandra.Ecto.Migration do
   defmacro __using__(_) do
     quote do
       use Ecto.Migration
-      import Cassandra.Ecto.Migration, only: [type: 1, materialized_view: 1, materialized_view: 2]
+      import Cassandra.Ecto.Migration, only: [type: 1, materialized_view: 1, materialized_view: 2, function: 1, function: 3]
     end
   end
 
@@ -200,8 +200,48 @@ defmodule Cassandra.Ecto.Migration do
           primary_key: {:age, :cid}
   """
   def materialized_view(name, options \\ []) do
-    options = options |> Keyword.put(:type, :materialized_view)
-    struct(%Table{name: name, primary_key: false, options: options})
+    options = Keyword.put(options, :type, :materialized_view)
+    prefix = Keyword.get(options, :prefix)
+    struct(%Table{name: name, primary_key: false, options: options, prefix: prefix})
+  end
+
+  @doc """
+  Defines Cassandra user defined function (UDF)
+
+  ### Example
+
+      create function(:left, [column: :text, num: :int],
+          returns: :text, language: :javascript,
+          on_null_input: :returns_null,
+          as: "column.substring(0,num)")
+  """
+  def function(name, vars \\ [], options \\ []) do
+    options = options
+    |> Keyword.put(:type, :function)
+    |> Keyword.put(:vars, vars)
+    |> Keyword.put_new(:language, :java)
+    |> Keyword.put_new(:on_null_input, :returns_null)
+    prefix = Keyword.get(options, :prefix)
+    struct(%Table{name: name, prefix: prefix, options: options})
+  end
+
+  @doc """
+  Defines Cassandra user defined aggregate (UDA)
+
+  ### Example
+
+      create aggregate(:average, :int,
+          sfunc: function(:avgState),
+          stype: {:tuple, {:int, :bigint}},
+          finalfunc: function(:avgFinal),
+          initcond: {0, 0})
+  """
+  def aggregate(name, var, options \\ []) do
+    options = options
+    |> Keyword.put(:type, :aggregate)
+    |> Keyword.put(:var, var)
+    prefix = Keyword.get(options, :prefix)
+    struct(%Table{name: name, prefix: prefix, options: options})
   end
 
   @doc """
