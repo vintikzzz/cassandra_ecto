@@ -195,8 +195,6 @@ defmodule Cassandra.Ecto.Adapter.CQL do
 
   defp handle_call(fun, _arity), do: {:fun, Atom.to_string(fun)}
 
-  defp op_to_binary({op, _, [_, _]} = expr, query) when op in @binary_ops, do:
-    paren_expr(expr, query)
   defp op_to_binary(expr, query), do: expr(expr, query)
 
   defp expr({{:., _, [{:&, _, [_idx]}, field]}, _, []}, _query) when is_atom(field), do:

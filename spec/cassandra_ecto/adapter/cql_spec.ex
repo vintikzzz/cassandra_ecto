@@ -63,12 +63,12 @@ defmodule CassandraEctoAdapterCQLSpec do
           it "generates cql with binary clauses" do
             query = (from p in "posts", where: p.id >= 1 and p.title == "abra") |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE (\"id\" >= 1) AND (\"title\" = 'abra')")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"id\" >= 1 AND \"title\" = 'abra'")
           end
-          it "generates cql with nested binary clauses" do
-            query = (from p in "posts", where: (p.id >= 1 and p.title == "abra") or p.id == 1) |> normalize
+          it "supports multiple binary clauses" do
+            query = (from p in "posts", where: "abra" in p.tags and p.title == "test" and p.text == "test") |> normalize
             expect(to_cql(:all, query))
-            |> to(eq "SELECT * FROM \"posts\" WHERE ((\"id\" >= 1) AND (\"title\" = 'abra')) OR (\"id\" = 1)")
+            |> to(eq "SELECT * FROM \"posts\" WHERE \"tags\" CONTAINS 'abra' AND \"title\" = 'test' AND \"text\" = 'test'")
           end
           it "generates cql with in clauses" do
             query = (from p in "posts", where: p.id in [1, 2]) |> normalize
