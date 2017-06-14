@@ -171,21 +171,18 @@ defmodule Cassandra.Ecto.Adapter.CQL do
   defp boolean(name, [%{expr: expr} | query_exprs], query) do
     name <> " " <> Enum.reduce(query_exprs, expr(expr, query), fn
         %BooleanExpr{expr: expr, op: op}, {op, acc} ->
-          {op, acc <> operator_to_boolean(op) <> paren_expr(expr, query)}
+          {op, acc <> operator_to_boolean(op) <> expr(expr, query)}
         %BooleanExpr{expr: expr, op: op}, {_, acc} ->
-          {op, "(" <> acc <> ")" <> operator_to_boolean(op) <> paren_expr(expr, query)}
+          {op, acc <> operator_to_boolean(op) <> expr(expr, query)}
       end)
   end
 
   defp operator_to_boolean(:and), do: " AND "
-  defp operator_to_boolean(:or), do: " OR "
-
-  defp paren_expr(expr, query), do:
-    "(" <> expr(expr, query) <> ")"
+  defp operator_to_boolean(:and), do: error! nil, "Cassandra adapter does not support :or operator"
 
   binary_ops =
     [==: "=", !=: "!=", <=: "<=", >=: ">=",
-      <:  "<", >:  ">", and: "AND", or: "OR", like: "LIKE"]
+      <:  "<", >:  ">", and: "AND", like: "LIKE"]
 
   @binary_ops Keyword.keys(binary_ops)
 
