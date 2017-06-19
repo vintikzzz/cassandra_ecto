@@ -15,7 +15,7 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
       field      :name,  :string
       has_many   :posts, Post, foreign_key: :author_id
       embeds_one :personal_info, PersonalInfo
-      timestamps()
+      timestamps(usec: false)
     end
   end
   defmodule PersonalInfo do
@@ -38,7 +38,7 @@ defmodule Cassandra.Ecto.Spec.Support.Schemas do
       field :links,    {:map, :string}
       embeds_many :comments, Comment
       belongs_to  :author,   User
-      timestamps()
+      timestamps(usec: false)
     end
   end
   defmodule PostStats do

@@ -125,8 +125,13 @@ defmodule Cassandra.Ecto.Adapter.CQL do
 
   defp where_names(opts), do: Keyword.get(opts, :where_names, nil)
 
-  defp allow_filtering([allow_filtering: true]), do: "ALLOW FILTERING"
-  defp allow_filtering(_), do: ""
+  defp allow_filtering(opts) do
+    if Keyword.get(opts, :allow_filtering, false) do
+      "ALLOW FILTERING"
+    else
+      ""
+    end
+  end
 
   defp per_partition_limit([per_partition_limit: num]) when is_integer(num),
     do: "PER PARTITION LIMIT " <> Integer.to_string(num)

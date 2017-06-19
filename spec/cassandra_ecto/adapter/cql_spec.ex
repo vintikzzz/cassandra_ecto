@@ -70,6 +70,14 @@ defmodule CassandraEctoAdapterCQLSpec do
             expect(to_cql(:all, query))
             |> to(eq "SELECT * FROM \"posts\" WHERE \"tags\" CONTAINS 'abra' AND \"title\" = 'test' AND \"text\" = 'test'")
           end
+          it "supports multiple binary clauses with binded variables" do
+            tags = "abra"
+            title = "test"
+            text = "test"
+            query = (from p in "posts", where: ^tags in p.tags and p.title == ^title and p.text == ^text) |> normalize
+            expect(to_cql(:all, query, where_names: [:tags, :title, :text]))
+            |> to(eq ~s(SELECT * FROM "posts" WHERE "tags" CONTAINS :tags AND "title" = :title AND "text" = :text))
+          end
           it "generates cql with in clauses" do
             query = (from p in "posts", where: p.id in [1, 2]) |> normalize
             expect(to_cql(:all, query))
@@ -134,6 +142,15 @@ defmodule CassandraEctoAdapterCQLSpec do
             query = (from p in "posts") |> normalize
             expect(to_cql(:all, query, per_partition_limit: 2))
             |> to(eq "SELECT * FROM \"posts\" PER PARTITION LIMIT 2")
+          end
+        end
+        context "with :where_names" do
+          it "generates cql" do
+            id = 1
+            title = "abra"
+            query = (from p in "posts", where: p.id >= ^id and p.title == ^title) |> normalize
+            expect(to_cql(:all, query, where_names: [:id, :title]))
+            |> to(eq ~s(SELECT * FROM "posts" WHERE "id" >= :id AND "title" = :title))
           end
         end
       end

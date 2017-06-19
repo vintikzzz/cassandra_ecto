@@ -270,7 +270,7 @@ defmodule Cassandra.Ecto.Adapter do
   end
 
   defp timestamp_decode(timestamp) do
-    {:ok, Ecto.DateTime.from_unix!(timestamp, :milliseconds) |> Ecto.DateTime.to_erl()}
+    Ecto.DateTime.from_unix!(timestamp, :milliseconds) |> Ecto.DateTime.dump()
   end
 
   defp timestamp_encode({{y, m, d}, {h, i, s, usec}}), do:
