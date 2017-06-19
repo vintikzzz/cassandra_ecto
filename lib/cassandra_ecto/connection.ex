@@ -22,7 +22,7 @@ defmodule Cassandra.Ecto.Connection do
     name = pool_name(repo, opts)
     nodes = Keyword.get(config, :nodes, [{@default_host, @default_port}])
     conn_opts = config
-    |> Keyword.put_new(:keyspace, Mix.env)
+    |> Keyword.put_new(:keyspace, String.to_atom(System.get_env("MIX_ENV") || "dev"))
     conn_opts = case opts[:use_keyspace] do
       false -> Keyword.delete(conn_opts, :keyspace)
       _     -> conn_opts
