@@ -166,7 +166,7 @@ defmodule Cassandra.Ecto.Adapter do
   def execute(repo, %{fields: fields}, {_cache, {func, query}}, params, process, opts) do
     opts = prepare_opts(func, repo, opts)
     cql = to_cql(func, query, opts)
-    names = get_names(query)
+    names = get_names(query, opts)
     params = Enum.zip(names, params) ++ if_fields(opts)
     case Connection.query(repo, cql, params, opts) do
       {:ok, %{rows: rows, num_rows: num, command: :select}} -> {num, rows |> Enum.map(&process_row(&1, process, fields))}
@@ -270,15 +270,12 @@ defmodule Cassandra.Ecto.Adapter do
   end
 
   defp timestamp_decode(timestamp) do
-    usec = timestamp |> rem(1_000_000)
-    timestamp = timestamp |> div(1_000_000)
-    {date, time} = :calendar.gregorian_seconds_to_datetime(timestamp)
-    time = time |> Tuple.append(usec)
-    {:ok, {date, time}}
+    Ecto.DateTime.from_unix!(timestamp, :milliseconds) |> Ecto.DateTime.dump()
   end
 
   defp timestamp_encode({{y, m, d}, {h, i, s, usec}}), do:
-    {:ok, :calendar.datetime_to_gregorian_seconds({{y, m, d}, {h, i, s}}) * 1_000_000 + usec}
+    {:ok, %DateTime{calendar: Calendar.ISO, day: d, hour: h, microsecond: {usec, 3}, minute: i, second: s, std_offset: 0, month: m, time_zone: "Etc/UTC", utc_offset: 0, year: y, zone_abbr: "UTC"}
+      |> DateTime.to_unix(:milliseconds)}
 
   @doc """
   See `c:Ecto.Adapter.prepare/2`

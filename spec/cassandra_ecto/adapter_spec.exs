@@ -61,6 +61,13 @@ defmodule CassandraEctoAdapterSpec do
               expect(TestRepo.all((from p in Post, where: "abra" in p.tags and p.text == "test" and p.title == "test"), allow_filtering: true) |> List.first |> Map.get(:id))
               |> to(eq id)
             end
+            it "fetches record with multiple where clauses and binded var names" do
+              tags = "abra"
+              text = "test"
+              title = "test"
+              expect(TestRepo.all((from p in Post, where: ^tags in p.tags and p.text == ^text and p.title == ^title), [allow_filtering: true, where_names: [:tags, :text, :title]]) |> List.first |> Map.get(:id))
+              |> to(eq id)
+            end
             it "writes log to io in :cyan when logging enabled" do
               message = capture_log(fn ->
                 TestRepo.all((from p in Post), log: true)
