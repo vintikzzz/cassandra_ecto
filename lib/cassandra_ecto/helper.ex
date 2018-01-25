@@ -3,6 +3,7 @@ defmodule Cassandra.Ecto.Helper do
 
   alias Ecto.Migration.{Table, Index}
   alias Ecto.Query
+  alias Ecto.Query.QueryExpr
 
   def db_value(value, {:tuple, types}) when is_tuple(value) and is_tuple(types) do
     Enum.zip(Tuple.to_list(value), Tuple.to_list(types))
@@ -80,7 +81,9 @@ defmodule Cassandra.Ecto.Helper do
          _ ->
            get_where_names(query)
       end
-    update_names ++ where_names
+    limit_name = get_limit_name(query)
+
+    update_names ++ where_names ++ limit_name
     |> List.flatten
     |> Enum.sort(&(elem(&1, 0) < elem(&2, 0)))
     |> Enum.unzip
@@ -125,4 +128,9 @@ defmodule Cassandra.Ecto.Helper do
   defp get_where_names({{:., [], [{:&, [], [ix]}, field]}, [], []}), do:
     {ix, field}
   defp get_where_names(_), do: []
+
+  defp get_limit_name(%Query{limit: nil}), do: []
+  defp get_limit_name(%Query{limit: %QueryExpr{expr: {:^, [], [ix]}}}), do:
+    [{ix, :"[limit]"}]
+  defp get_limit_name(_), do: []
 end

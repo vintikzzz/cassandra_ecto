@@ -68,6 +68,15 @@ defmodule CassandraEctoAdapterSpec do
               expect(TestRepo.all((from p in Post, where: ^tags in p.tags and p.text == ^text and p.title == ^title), [allow_filtering: true, where_names: [:tags, :text, :title]]) |> List.first |> Map.get(:id))
               |> to(eq id)
             end
+            it "fetches records with limit" do
+              expect(TestRepo.all(from(p in Post, limit: 1)) |> List.first |> Map.get(:id))
+              |> to(eq id)
+            end
+            it "fetches records with limit interpolation" do
+              limit = 1
+              expect(TestRepo.all(from(p in Post, limit: ^limit)) |> List.first |> Map.get(:id))
+              |> to(eq id)
+            end
             it "writes log to io in :cyan when logging enabled" do
               message = capture_log(fn ->
                 TestRepo.all((from p in Post), log: true)
