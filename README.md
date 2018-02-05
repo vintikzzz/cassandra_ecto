@@ -1,3 +1,6 @@
+# MAINTAINER WANTED!!!
+I am currently have a really heavy workload and unable to mantain project. Sorry guys... If somebody is strong enough to mantain this project, don't hesitate, please help!
+
 # Cassandra.Ecto
 
 [![Build Status](https://secure.travis-ci.org/vintikzzz/cassandra_ecto.svg?branch=master "Build Status")](http://travis-ci.org/vintikzzz/cassandra_ecto) [![Coverage Status](https://coveralls.io/repos/vintikzzz/cassandra_ecto/badge.svg?branch=master)](https://coveralls.io/r/vintikzzz/cassandra_ecto?branch=master) [![hex.pm version](https://img.shields.io/hexpm/v/cassandra_ecto.svg)](https://hex.pm/packages/cassandra_ecto) [![hex.pm downloads](https://img.shields.io/hexpm/dt/cassandra_ecto.svg)](https://hex.pm/packages/cassandra_ecto) [![Deps Status](https://beta.hexfaktor.org/badge/all/github/vintikzzz/cassandra_ecto.svg)](https://beta.hexfaktor.org/github/vintikzzz/cassandra_ecto)
